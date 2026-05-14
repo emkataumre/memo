@@ -15,7 +15,7 @@ export default function OutboxBadge() {
       className="fixed bottom-6 left-4 z-[180] pointer-events-none font-pixel text-[10px] tracking-widest uppercase bg-paper border-2 border-coral text-ink px-2 py-1 shadow-[3px_3px_0_var(--coral)] flex items-center gap-2 select-none"
     >
       <span className="inline-block w-1.5 h-1.5 bg-coral" />
-      {count} queued
+      {count} izchakvat
     </div>
   );
 }

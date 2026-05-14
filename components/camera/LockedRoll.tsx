@@ -28,8 +28,8 @@ export default function LockedRoll({ photos, onClose }: Props) {
   const mm = minutes % 60;
   const countdown =
     hh > 0
-      ? `${hh}H ${String(mm).padStart(2, "0")}M`
-      : `${String(mm).padStart(2, "0")}M`;
+      ? `${hh}h ${String(mm).padStart(2, "0")}m`
+      : `${String(mm).padStart(2, "0")}m`;
 
   return (
     <div className="fixed inset-0 z-[160] bg-paper overflow-auto">
@@ -37,18 +37,18 @@ export default function LockedRoll({ photos, onClose }: Props) {
         <span className="font-display text-2xl text-coral leading-none normal-case tracking-normal">
           memo
         </span>
-        <span className="opacity-65 hidden sm:inline">today&apos;s roll</span>
+        <span className="opacity-65 hidden sm:inline">dneshniq den</span>
         <button
           onClick={onClose}
           className="border-2 border-paper px-2.5 py-1 active:bg-paper active:text-ink cursor-pointer"
         >
-          back
+          nazad
         </button>
       </header>
 
       <div className="max-w-3xl mx-auto px-6 pt-10 pb-6">
         <h1 className="font-display text-6xl sm:text-7xl leading-none">
-          today&apos;s <span className="text-coral">roll.</span>
+          dneshniq <span className="text-coral">den.</span>
         </h1>
         <div className="mt-6 flex items-center gap-3 flex-wrap">
           <span className="border-2 border-coral text-coral px-2.5 py-1 font-pixel text-[11px] tracking-widest uppercase flex items-center gap-2 shadow-[2px_2px_0_var(--coral)]">
@@ -68,10 +68,10 @@ export default function LockedRoll({ photos, onClose }: Props) {
                 strokeLinecap="round"
               />
             </svg>
-            {countdown} left
+            ostavat {countdown}
           </span>
           <span className="font-pixel text-[10px] tracking-widest uppercase text-ink-soft">
-            until reveal at 21:00
+            do razkrivane v 21:00
           </span>
         </div>
         {lockedEmo + lockedMagi > 0 && (
@@ -85,16 +85,12 @@ export default function LockedRoll({ photos, onClose }: Props) {
       {locked.length > 0 ? (
         <div className="max-w-3xl mx-auto px-6 pb-32 grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-10">
           {locked.map((p, i) => (
-            <LockedTile
-              key={p.id}
-              photo={p}
-              tilt={TILTS[i % TILTS.length]}
-            />
+            <LockedTile key={p.id} photo={p} tilt={TILTS[i % TILTS.length]} />
           ))}
         </div>
       ) : (
         <div className="max-w-3xl mx-auto px-6 py-12 text-center font-pixel text-xs tracking-widest uppercase text-ink-soft">
-          nothing pending — go take a picture.
+          nqma nishto — shtrakni edna snimka :)
         </div>
       )}
     </div>
@@ -164,7 +160,7 @@ function LockedTile({ photo, tilt }: { photo: Photo; tilt: number }) {
         <span className="text-ink">{photo.author}</span>
         <span className="text-coral flex items-center gap-1.5">
           <span className="w-1 h-1 bg-coral inline-block" />
-          locked
+          zaklucheno
         </span>
       </div>
     </div>

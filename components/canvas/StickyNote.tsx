@@ -94,9 +94,7 @@ function StickyNote({
   const widthScale = renderWidth / DEFAULT_WIDTH;
   const monoBodyPx = 16 * widthScale;
   const leadDisplayPx =
-    typoTier === "lead"
-      ? 32 * (renderWidth / 320)
-      : 60 * (renderWidth / 420);
+    typoTier === "lead" ? 32 * (renderWidth / 320) : 60 * (renderWidth / 420);
   const restMonoPx = 15 * (renderWidth / 320);
   const allDisplayPx = 60 * (renderWidth / 420);
   const authorPx = 10 * widthScale;
@@ -263,8 +261,10 @@ function StickyNote({
   // newline as the headline; the rest stays mono. If there's no
   // newline, the whole body is the lead.
   const firstBreak = note.body.indexOf("\n");
-  const leadText = firstBreak === -1 ? note.body : note.body.slice(0, firstBreak);
-  const restText = firstBreak === -1 ? "" : note.body.slice(firstBreak + 1).trim();
+  const leadText =
+    firstBreak === -1 ? note.body : note.body.slice(0, firstBreak);
+  const restText =
+    firstBreak === -1 ? "" : note.body.slice(firstBreak + 1).trim();
 
   const bgClass =
     variant === "grain" || variant === "tape"
@@ -309,7 +309,8 @@ function StickyNote({
         contain: "content",
         contentVisibility: "auto",
         containIntrinsicSize: `auto ${renderWidth}px ${renderHeight}px`,
-        willChange: dragging || resizing ? "transform, width, height" : undefined,
+        willChange:
+          dragging || resizing ? "transform, width, height" : undefined,
         touchAction: "none",
         zIndex: dragging || resizing ? 50 : undefined,
         ...inlineBg,
@@ -323,7 +324,9 @@ function StickyNote({
           ? "outline outline-4 outline-coral outline-offset-4"
           : ""
       } ${
-        armed ? "outline outline-2 outline-coral outline-offset-2 opacity-95" : ""
+        armed
+          ? "outline outline-2 outline-coral outline-offset-2 opacity-95"
+          : ""
       } ${
         resizing ? "outline outline-2 outline-coral outline-offset-2" : ""
       } ${isOwn ? "cursor-grab" : "cursor-default"} ${
@@ -467,7 +470,7 @@ function StickyNote({
           onPointerMove={onResizePointerMove}
           onPointerUp={onResizePointerUp}
           onPointerCancel={onResizePointerUp}
-          aria-label="Resize note"
+          aria-label="promeni razmera"
           className="absolute bottom-0 right-0 w-7 h-7 flex items-end justify-end pb-1 pr-1 cursor-nwse-resize"
           style={{ touchAction: "none" }}
         >

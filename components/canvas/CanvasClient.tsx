@@ -18,11 +18,7 @@ import { subscribePresence } from "@/lib/supabase/presence";
 import { isLocked } from "@/lib/photos/derive";
 import { signCache } from "@/lib/photos/sign-cache";
 import { notesStore, photosStore, songsStore } from "@/lib/canvas/stores";
-import {
-  useNotes,
-  usePhotos,
-  useSongs,
-} from "@/lib/canvas/use-canvas-stores";
+import { useNotes, usePhotos, useSongs } from "@/lib/canvas/use-canvas-stores";
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
 import SelfPicker from "@/components/SelfPicker";
@@ -95,9 +91,10 @@ export default function CanvasClient() {
   const setCardDrag = useCallback((active: boolean) => {
     noteDragRef.current = active;
   }, []);
-  const [vpSize, setVpSize] = useState<{ width: number; height: number } | null>(
-    null,
-  );
+  const [vpSize, setVpSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const { viewport, animateTo } = usePanZoom(viewportRef, noteDragRef);
 
   // Track viewport size for culling math
@@ -190,18 +187,12 @@ export default function CanvasClient() {
         return;
       }
 
-      const mergedNotes = notesStore.merge(
-        (nRows ?? []) as Note[],
-        snapshotTs,
-      );
+      const mergedNotes = notesStore.merge((nRows ?? []) as Note[], snapshotTs);
       const mergedPhotos = photosStore.merge(
         (pRows ?? []) as Photo[],
         snapshotTs,
       );
-      const mergedSongs = songsStore.merge(
-        (sRows ?? []) as Song[],
-        snapshotTs,
-      );
+      const mergedSongs = songsStore.merge((sRows ?? []) as Song[], snapshotTs);
       setResyncCount((n) => n + 1);
 
       const revealedIds = mergedPhotos
@@ -335,18 +326,21 @@ export default function CanvasClient() {
       }
       if (nextAt === Infinity) return;
       const delay = Math.min(nextAt - now, REVEAL_TIMER_CAP_MS);
-      timer = setTimeout(() => {
-        setRevealTick((t) => t + 1);
-        // Photos that just unlocked need signed URLs.
-        const justRevealedIds = photosStore
-          .getSnapshot()
-          .filter((p) => !isLocked(p))
-          .map((p) => p.id);
-        if (justRevealedIds.length > 0) {
-          signCache.ensureMany(justRevealedIds);
-        }
-        schedule();
-      }, Math.max(0, delay));
+      timer = setTimeout(
+        () => {
+          setRevealTick((t) => t + 1);
+          // Photos that just unlocked need signed URLs.
+          const justRevealedIds = photosStore
+            .getSnapshot()
+            .filter((p) => !isLocked(p))
+            .map((p) => p.id);
+          if (justRevealedIds.length > 0) {
+            signCache.ensureMany(justRevealedIds);
+          }
+          schedule();
+        },
+        Math.max(0, delay),
+      );
     }
 
     schedule();
@@ -364,7 +358,7 @@ export default function CanvasClient() {
   // Capture (camera) hook. Realtime INSERT will surface the locked photo
   // in the PendingPill count automatically once it lands in the DB.
   const capture = useCapture(() => {
-    setUploadFlash("locked in.");
+    setUploadFlash("zapazeno.");
     setTimeout(() => setUploadFlash(null), 2500);
   });
 
@@ -388,9 +382,7 @@ export default function CanvasClient() {
   const todaysOwnSong = useMemo(() => {
     if (!self) return null;
     const today = memoDay();
-    return (
-      songs.find((s) => s.author === self && s.memo_day === today) ?? null
-    );
+    return songs.find((s) => s.author === self && s.memo_day === today) ?? null;
   }, [songs, self]);
 
   const spatialIndex = useMemo(() => {
@@ -621,27 +613,24 @@ export default function CanvasClient() {
     }
   }, []);
 
-  const movePhoto = useCallback(
-    async (id: string, x: number, y: number) => {
-      photosStore.update((prev) => {
-        const target = prev.find((p) => p.id === id);
-        if (!target) return prev;
-        const others = prev.filter((p) => p.id !== id);
-        return [...others, { ...target, pinned_x: x, pinned_y: y }];
+  const movePhoto = useCallback(async (id: string, x: number, y: number) => {
+    photosStore.update((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (!target) return prev;
+      const others = prev.filter((p) => p.id !== id);
+      return [...others, { ...target, pinned_x: x, pinned_y: y }];
+    });
+    photosStore.touch(id);
+    try {
+      await fetch(`/api/photos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned_x: x, pinned_y: y }),
       });
-      photosStore.touch(id);
-      try {
-        await fetch(`/api/photos/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pinned_x: x, pinned_y: y }),
-        });
-      } catch {
-        /* reconcile on next poll */
-      }
-    },
-    [],
-  );
+    } catch {
+      /* reconcile on next poll */
+    }
+  }, []);
 
   const moveSong = useCallback(async (id: string, x: number, y: number) => {
     songsStore.update((prev) => {
@@ -666,12 +655,8 @@ export default function CanvasClient() {
     async (track: SpotifyTrack) => {
       if (!self) return;
       const rect = viewportRef.current?.getBoundingClientRect();
-      const cx = rect
-        ? (rect.width / 2 - viewport.x) / viewport.zoom
-        : 0;
-      const cy = rect
-        ? (rect.height / 2 - viewport.y) / viewport.zoom
-        : 0;
+      const cx = rect ? (rect.width / 2 - viewport.x) / viewport.zoom : 0;
+      const cy = rect ? (rect.height / 2 - viewport.y) / viewport.zoom : 0;
       const rotation = randomRotation();
       try {
         const res = await fetch("/api/songs", {
@@ -707,8 +692,7 @@ export default function CanvasClient() {
       if (!rect) return;
       // Reuse last known position if it exists (came from a prior pin);
       // otherwise drop at the current viewport center with a fresh rotation.
-      const hasPrior =
-        photo.pinned_x !== null && photo.pinned_y !== null;
+      const hasPrior = photo.pinned_x !== null && photo.pinned_y !== null;
       const cx = hasPrior
         ? (photo.pinned_x as number)
         : (rect.width / 2 - viewport.x) / viewport.zoom;
@@ -830,10 +814,7 @@ export default function CanvasClient() {
     const maxY = Math.max(...ys) + 80;
     const bboxW = maxX - minX;
     const bboxH = maxY - minY;
-    const zoomFit = Math.min(
-      vpSize.width / bboxW,
-      vpSize.height / bboxH,
-    );
+    const zoomFit = Math.min(vpSize.width / bboxW, vpSize.height / bboxH);
     const targetZoom = Math.max(0.1, Math.min(1, zoomFit));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
@@ -864,71 +845,78 @@ export default function CanvasClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, revealTick]);
 
-  const jumpToToday = useCallback((durationArg?: number) => {
-    if (!vpSize) return;
-    // Defensive: if a caller accidentally passes a non-number (e.g. an
-    // onClick event object), fall back to the default. Without this,
-    // animateTo divides by a non-finite value and the viewport becomes
-    // NaN forever.
-    const duration =
-      typeof durationArg === "number" && Number.isFinite(durationArg)
-        ? durationArg
-        : 400;
-    const today = memoDay();
-    const NOTE_W = 208;
-    const NOTE_H = 130;
-    const SONG_W = 280;
-    const SONG_H = 160;
-    const xs: number[] = [];
-    const ys: number[] = [];
-    for (const n of notes) {
-      if (memoDay(new Date(n.created_at)) === today) {
-        xs.push(n.x, n.x + NOTE_W);
-        ys.push(n.y, n.y + NOTE_H);
+  const jumpToToday = useCallback(
+    (durationArg?: number) => {
+      if (!vpSize) return;
+      // Defensive: if a caller accidentally passes a non-number (e.g. an
+      // onClick event object), fall back to the default. Without this,
+      // animateTo divides by a non-finite value and the viewport becomes
+      // NaN forever.
+      const duration =
+        typeof durationArg === "number" && Number.isFinite(durationArg)
+          ? durationArg
+          : 400;
+      const today = memoDay();
+      const NOTE_W = 208;
+      const NOTE_H = 130;
+      const SONG_W = 280;
+      const SONG_H = 160;
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (const n of notes) {
+        if (memoDay(new Date(n.created_at)) === today) {
+          xs.push(n.x, n.x + NOTE_W);
+          ys.push(n.y, n.y + NOTE_H);
+        }
       }
-    }
-    for (const p of pinnedPhotos) {
-      if (
-        p.pinned_x !== null &&
-        p.pinned_y !== null &&
-        memoDay(new Date(p.taken_at)) === today
-      ) {
-        xs.push(p.pinned_x, p.pinned_x + NOTE_W);
-        ys.push(p.pinned_y, p.pinned_y + NOTE_W);
+      for (const p of pinnedPhotos) {
+        if (
+          p.pinned_x !== null &&
+          p.pinned_y !== null &&
+          memoDay(new Date(p.taken_at)) === today
+        ) {
+          xs.push(p.pinned_x, p.pinned_x + NOTE_W);
+          ys.push(p.pinned_y, p.pinned_y + NOTE_W);
+        }
       }
-    }
-    for (const s of pinnedSongs) {
-      if (s.pinned_x !== null && s.pinned_y !== null && s.memo_day === today) {
-        xs.push(s.pinned_x, s.pinned_x + SONG_W);
-        ys.push(s.pinned_y, s.pinned_y + SONG_H);
+      for (const s of pinnedSongs) {
+        if (
+          s.pinned_x !== null &&
+          s.pinned_y !== null &&
+          s.memo_day === today
+        ) {
+          xs.push(s.pinned_x, s.pinned_x + SONG_W);
+          ys.push(s.pinned_y, s.pinned_y + SONG_H);
+        }
       }
-    }
-    if (xs.length === 0) {
+      if (xs.length === 0) {
+        animateTo(
+          { x: vpSize.width / 2, y: vpSize.height / 2, zoom: 1 },
+          duration === 0 ? 0 : 280,
+        );
+        return;
+      }
+      const minX = Math.min(...xs) - 80;
+      const minY = Math.min(...ys) - 80;
+      const maxX = Math.max(...xs) + 80;
+      const maxY = Math.max(...ys) + 80;
+      const bboxW = maxX - minX;
+      const bboxH = maxY - minY;
+      const zoomFit = Math.min(vpSize.width / bboxW, vpSize.height / bboxH);
+      const targetZoom = Math.max(0.1, Math.min(1, zoomFit));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
       animateTo(
-        { x: vpSize.width / 2, y: vpSize.height / 2, zoom: 1 },
-        duration === 0 ? 0 : 280,
+        {
+          x: vpSize.width / 2 - cx * targetZoom,
+          y: vpSize.height / 2 - cy * targetZoom,
+          zoom: targetZoom,
+        },
+        duration,
       );
-      return;
-    }
-    const minX = Math.min(...xs) - 80;
-    const minY = Math.min(...ys) - 80;
-    const maxX = Math.max(...xs) + 80;
-    const maxY = Math.max(...ys) + 80;
-    const bboxW = maxX - minX;
-    const bboxH = maxY - minY;
-    const zoomFit = Math.min(vpSize.width / bboxW, vpSize.height / bboxH);
-    const targetZoom = Math.max(0.1, Math.min(1, zoomFit));
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    animateTo(
-      {
-        x: vpSize.width / 2 - cx * targetZoom,
-        y: vpSize.height / 2 - cy * targetZoom,
-        zoom: targetZoom,
-      },
-      duration,
-    );
-  }, [notes, pinnedPhotos, pinnedSongs, vpSize, animateTo]);
+    },
+    [notes, pinnedPhotos, pinnedSongs, vpSize, animateTo],
+  );
 
   // First-paint camera: snap to today's frame as soon as the snapshot
   // has loaded and the viewport is sized. Avoids the user landing at
@@ -1082,10 +1070,10 @@ export default function CanvasClient() {
       {/* upload status */}
       {(capture.state !== "idle" || uploadFlash) && (
         <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[100] bg-ink text-paper font-pixel text-xs tracking-widest uppercase px-3 py-2 border-2 border-coral shadow-[3px_3px_0_var(--coral)]">
-          {capture.state === "processing" && "compressing…"}
-          {capture.state === "uploading" && "uploading…"}
+          {capture.state === "processing" && "kompresirane"}
+          {capture.state === "uploading" && "kachvane…"}
           {capture.state === "error" &&
-            `error · ${capture.error ?? "upload failed"}`}
+            `greshka · ${capture.error ?? "neuspeshno kachvane"}`}
           {capture.state === "idle" && uploadFlash}
         </div>
       )}

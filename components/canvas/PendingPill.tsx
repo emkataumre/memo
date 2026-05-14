@@ -28,7 +28,7 @@ export default function PendingPill({ photos, onOpenReveal }: Props) {
 
   const unpinned = tonightsPhotos.filter((p) => p.pinned_at === null).length;
   const label =
-    unpinned > 0 ? `${unpinned} to review →` : "view tonight →";
+    unpinned > 0 ? `${unpinned} za pregled →` : "vij dnes →";
 
   return (
     <button
@@ -36,7 +36,7 @@ export default function PendingPill({ photos, onOpenReveal }: Props) {
       className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 bg-coral border-2 border-ink shadow-[5px_5px_0_var(--ink)] px-4 py-2.5 font-pixel text-xs tracking-widest uppercase text-ink cursor-pointer active:translate-x-[3px] active:translate-y-[3px] active:shadow-none flex items-center gap-2"
     >
       <span className="inline-block w-2 h-2 bg-ink"></span>
-      tonight · {label}
+      dnes · {label}
     </button>
   );
 }

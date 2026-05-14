@@ -88,12 +88,12 @@ export default function JarDraw({ onClose, onTaken }: Props) {
         <header className="bg-ink text-paper px-3 py-1.5 flex items-center justify-between font-pixel text-[11px] tracking-widest uppercase">
           <span className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-coral"></span>
-            draw
+            izvadi
           </span>
           <button
             onClick={onClose}
             className="w-4 h-4 border-2 border-paper flex items-center justify-center text-[8px] cursor-pointer"
-            aria-label="Close"
+            aria-label="Zatvori"
           >
             ✕
           </button>
@@ -101,23 +101,21 @@ export default function JarDraw({ onClose, onTaken }: Props) {
 
         {phase === "drawing" && (
           <div className="p-8 text-center font-pixel text-[11px] tracking-widest uppercase text-ink-soft">
-            shaking the jar…
+            razklashtam burkanata…
           </div>
         )}
 
         {phase === "empty" && (
           <div className="p-8 text-center">
             <div className="font-display text-3xl text-ink mb-2">
-              jar&rsquo;s empty<span className="text-coral">.</span>
+              prazno e<span className="text-coral">.</span>
             </div>
-            <p className="font-mono text-xs text-ink-soft">
-              add something first.
-            </p>
+            <p className="font-mono text-xs text-ink-soft">dobavi neshto.</p>
             <button
               onClick={onClose}
               className="mt-5 px-3 py-2 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px]"
             >
-              back
+              nazad
             </button>
           </div>
         )}
@@ -125,13 +123,13 @@ export default function JarDraw({ onClose, onTaken }: Props) {
         {phase === "error" && (
           <div className="p-8 text-center">
             <p className="text-coral font-pixel text-[10px] tracking-widest uppercase">
-              {error ?? "something went wrong"}
+              {error ?? "neshto se obarka"}
             </p>
             <button
               onClick={() => void drawOne()}
               className="mt-5 px-3 py-2 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px]"
             >
-              try again
+              probvai pak
             </button>
           </div>
         )}
@@ -144,7 +142,7 @@ export default function JarDraw({ onClose, onTaken }: Props) {
               style={{ transform: "rotate(-1.2deg)" }}
             >
               <div className="font-pixel text-[9px] tracking-widest uppercase text-coral mb-2">
-                from {idea.author}
+                ot {idea.author}
               </div>
               <div className="font-display text-2xl leading-tight text-ink whitespace-pre-wrap break-words">
                 {idea.body}
@@ -157,20 +155,20 @@ export default function JarDraw({ onClose, onTaken }: Props) {
                 disabled={phase === "deciding"}
                 className="px-3 py-3 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
               >
-                back in jar
+                obratno v burkancheto
               </button>
               <button
                 onClick={() => void decide(true)}
                 disabled={phase === "deciding"}
                 className="px-3 py-3 border-2 border-ink bg-coral text-ink font-pixel text-[10px] tracking-widest uppercase shadow-[3px_3px_0_var(--ink)] cursor-pointer active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                take it →
+                vzemi →
               </button>
             </div>
             <div className="mt-2 font-pixel text-[9px] tracking-widest uppercase text-ink-soft text-center">
               {phase === "deciding"
                 ? "…"
-                : "“back in jar” draws another"}
+                : "“obratno v burkancheto” izvajda druga"}
             </div>
           </div>
         )}

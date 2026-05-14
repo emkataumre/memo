@@ -25,7 +25,7 @@ const pixelifySans = Pixelify_Sans({
 
 export const metadata: Metadata = {
   title: "memo",
-  description: "private. two of us. forever.",
+  description: "",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -54,7 +54,7 @@ export default function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return (
     <html
-      lang="en"
+      lang="bg-Latn"
       className={`${caprasimo.variable} ${jetbrainsMono.variable} ${pixelifySans.variable} h-full antialiased`}
     >
       <head>

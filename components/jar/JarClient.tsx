@@ -101,27 +101,27 @@ export default function JarClient() {
 
   const handleAdded = useCallback(() => {
     setComposing(false);
-    setFlash("dropped in.");
+    setFlash("pusnato.");
     setTimeout(() => setFlash(null), 1800);
     void fetchState();
   }, [fetchState]);
 
   const handleTaken = useCallback(() => {
     setDrawing(false);
-    setFlash("now pending. log it when the date happens.");
+    setFlash("sega e na izchakvane. logni q kogato e gotova.");
     void fetchState();
     setTimeout(() => setFlash(null), 2400);
   }, [fetchState]);
 
   const handleCancelPending = useCallback(() => {
-    setFlash("back in the jar.");
+    setFlash("obratno v burkancheto.");
     void fetchState();
     setTimeout(() => setFlash(null), 1800);
   }, [fetchState]);
 
   const handleCompleted = useCallback(() => {
     setLogging(false);
-    setFlash("date logged. saved to archive.");
+    setFlash("zapisana. otide v arhiva.");
     void fetchState();
     setTimeout(() => setFlash(null), 2400);
   }, [fetchState]);
@@ -137,12 +137,14 @@ export default function JarClient() {
         <span className="font-display text-2xl text-coral leading-none normal-case tracking-normal">
           memo
         </span>
-        <span className="opacity-65 hidden sm:inline">date jar</span>
+        <span className="opacity-65 hidden sm:inline">
+          burkanche sus sreshti
+        </span>
         <button
           onClick={() => router.push("/")}
           className="border-2 border-paper px-2.5 py-1 active:bg-paper active:text-ink cursor-pointer"
         >
-          canvas
+          platno
         </button>
       </header>
 
@@ -156,10 +158,10 @@ export default function JarClient() {
         )}
 
         <h1 className="font-display text-5xl sm:text-6xl leading-none mt-6">
-          the jar<span className="text-coral">.</span>
+          burkancheto<span className="text-coral">.</span>
         </h1>
         <p className="mt-2 font-pixel text-[10px] tracking-widest uppercase text-ink-soft text-center max-w-[260px]">
-          drop ideas. shake one out when you want.
+          pusni idei. raztarsi gi kogato iskash.
         </p>
 
         <div className="mt-4 mb-3 flex justify-center">
@@ -172,7 +174,7 @@ export default function JarClient() {
             {state.count}
           </span>
           <span className="font-pixel text-[11px] tracking-widest uppercase text-ink-soft">
-            {state.count === 1 ? "idea" : "ideas"} inside
+            {state.count === 1 ? "ideya" : "idei"} vutre
           </span>
         </div>
         {state.count > 0 && (emoCount > 0 || magiCount > 0) && (
@@ -188,19 +190,19 @@ export default function JarClient() {
             disabled={!selfTyped}
             className="px-4 py-3.5 border-2 border-ink bg-paper-deep font-pixel text-[11px] tracking-widest uppercase cursor-pointer active:translate-x-[3px] active:translate-y-[3px] shadow-[4px_4px_0_var(--ink)] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            + add idea
+            + dobavi ideqa
           </button>
           <button
             onClick={() => setDrawing(true)}
             disabled={state.count === 0 || state.pending !== null}
             title={
               state.pending !== null
-                ? "finish or cancel the pending date first"
+                ? "zavarshi ili otkaji chakashtata sreshta parvo"
                 : undefined
             }
             className="px-4 py-3.5 border-2 border-ink bg-coral text-ink font-pixel text-[11px] tracking-widest uppercase cursor-pointer active:translate-x-[3px] active:translate-y-[3px] shadow-[4px_4px_0_var(--ink)] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            draw one →
+            izvadi edna →
           </button>
         </div>
 
@@ -219,10 +221,7 @@ export default function JarClient() {
         />
       )}
       {drawing && (
-        <JarDraw
-          onClose={() => setDrawing(false)}
-          onTaken={handleTaken}
-        />
+        <JarDraw onClose={() => setDrawing(false)} onTaken={handleTaken} />
       )}
       {logging && state.pending && selfTyped && (
         <JarCompleteSheet

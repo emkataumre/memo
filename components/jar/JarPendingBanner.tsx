@@ -19,7 +19,7 @@ export default function JarPendingBanner({ idea, onCancel, onLog }: Props) {
     if (cancelling) return;
     if (
       !window.confirm(
-        `cancel "${truncate(idea.body, 40)}" and drop it back in the jar?`,
+        `otkaji "${truncate(idea.body, 40)}" i ya vurni v burkancheto?`,
       )
     ) {
       return;
@@ -40,19 +40,19 @@ export default function JarPendingBanner({ idea, onCancel, onLog }: Props) {
       setCancelling(false);
       // Surface failures inline — banner stays. Keep simple alert; the
       // user is on a stable connection most of the time.
-      window.alert("couldn't cancel. try again.");
+      window.alert("ne se poluchi. probvai pak.");
     }
   }
 
   return (
     <section
-      aria-label="Pending date"
+      aria-label="Chakashta data"
       className="w-full max-w-md mx-auto mt-4 border-2 border-ink bg-coral text-ink shadow-[6px_6px_0_var(--ink)]"
     >
       <header className="bg-ink text-coral px-3 py-1.5 flex items-center justify-between font-pixel text-[10px] tracking-widest uppercase">
         <span className="flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 bg-coral animate-pulse" />
-          pending date · from {idea.author}
+          sreshta · ot {idea.author}
         </span>
       </header>
       <div className="p-4">
@@ -65,14 +65,14 @@ export default function JarPendingBanner({ idea, onCancel, onLog }: Props) {
             disabled={cancelling}
             className="px-3 py-3 border-2 border-ink bg-paper text-ink font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
           >
-            {cancelling ? "…" : "back to jar"}
+            {cancelling ? "…" : "obratno v burkancheto"}
           </button>
           <button
             onClick={onLog}
             disabled={cancelling}
             className="px-3 py-3 border-2 border-ink bg-ink text-coral font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
           >
-            log it →
+            zapishi →
           </button>
         </div>
       </div>

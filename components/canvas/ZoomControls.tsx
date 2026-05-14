@@ -18,13 +18,13 @@ export default function ZoomControls({
   const pct = Math.round(zoom * 100);
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2.5 items-stretch">
-      <Btn onClick={onZoomIn} aria-label="Zoom in" primary>
+      <Btn onClick={onZoomIn} aria-label="Uvelichi" primary>
         <PlusIcon />
       </Btn>
-      <Btn onClick={onZoomOut} aria-label="Zoom out">
+      <Btn onClick={onZoomOut} aria-label="Namali">
         <MinusIcon />
       </Btn>
-      <Btn onClick={onFit} aria-label="Fit all content" disabled={!canFit}>
+      <Btn onClick={onFit} aria-label="Poberi vsichko" disabled={!canFit}>
         <span className="font-pixel text-[10px] tracking-widest">FIT</span>
       </Btn>
       <div className="text-center font-pixel text-[10px] tracking-widest uppercase text-ink-soft bg-paper border-2 border-ink px-2 py-1 select-none">

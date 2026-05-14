@@ -39,7 +39,7 @@ export default function ConnectionToast({ connected }: Props) {
     >
       <div className="font-pixel text-[10px] tracking-widest uppercase bg-ink text-paper px-3 py-2 border-2 border-coral shadow-[3px_3px_0_var(--coral)] flex items-center gap-2 select-none">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-coral animate-pulse" />
-        reconnecting…
+        svurzvane otnovo…
       </div>
     </div>
   );

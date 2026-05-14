@@ -11,7 +11,7 @@ export default function Fabs({ onNewNote, onCamera, onSong }: Props) {
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex flex-row gap-3 items-center">
       <button
         onClick={onCamera}
-        aria-label="Take photo"
+        aria-label="Napravi snimka"
         disabled={!onCamera}
         className="bg-paper border-2 border-ink shadow-[5px_5px_0_var(--ink)] flex items-center justify-center cursor-pointer active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ width: 56, height: 56 }}
@@ -31,7 +31,7 @@ export default function Fabs({ onNewNote, onCamera, onSong }: Props) {
       </button>
       <button
         onClick={onNewNote}
-        aria-label="Drop a note"
+        aria-label="Pusni belejka"
         className="bg-coral border-2 border-ink shadow-[6px_6px_0_var(--ink)] flex items-center justify-center cursor-pointer active:translate-x-[6px] active:translate-y-[6px] active:shadow-none transition-transform"
         style={{ width: 68, height: 68 }}
       >
@@ -46,7 +46,7 @@ export default function Fabs({ onNewNote, onCamera, onSong }: Props) {
       </button>
       <button
         onClick={onSong}
-        aria-label="Song of the day"
+        aria-label="Pesen na denya"
         disabled={!onSong}
         className="bg-paper border-2 border-ink shadow-[5px_5px_0_var(--ink)] flex items-center justify-center cursor-pointer active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ width: 56, height: 56 }}

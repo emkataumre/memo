@@ -104,7 +104,9 @@ export default function JarCompleteSheet({
         const data = (await completeRes.json().catch(() => ({}))) as {
           error?: string;
         };
-        throw new Error(data.error ?? `complete failed (${completeRes.status})`);
+        throw new Error(
+          data.error ?? `complete failed (${completeRes.status})`,
+        );
       }
 
       onCompleted();
@@ -118,12 +120,12 @@ export default function JarCompleteSheet({
     phase === "processing" || phase === "uploading" || phase === "saving";
   const busyLabel =
     phase === "processing"
-      ? "compressing…"
+      ? "kompresirane"
       : phase === "uploading"
-        ? "uploading…"
+        ? "kachvane…"
         : phase === "saving"
-          ? "saving…"
-          : "save";
+          ? "zapazvane…"
+          : "zapazi";
 
   return (
     <div
@@ -135,12 +137,12 @@ export default function JarCompleteSheet({
         className="w-full max-w-md bg-paper border-2 border-ink shadow-[10px_10px_0_var(--coral)] max-h-[90vh] overflow-y-auto"
       >
         <header className="bg-ink text-paper px-3 py-1.5 flex items-center justify-between font-pixel text-[11px] tracking-widest uppercase sticky top-0 z-10">
-          <span>log date</span>
+          <span>zapazi sreshta</span>
           <button
             onClick={onCancel}
             disabled={busy}
             className="w-4 h-4 border-2 border-paper flex items-center justify-center text-[8px] cursor-pointer disabled:opacity-50"
-            aria-label="Close"
+            aria-label="Zatvori"
           >
             ✕
           </button>
@@ -149,7 +151,7 @@ export default function JarCompleteSheet({
         <div className="p-5">
           <div className="bg-white border-2 border-ink shadow-[3px_3px_0_var(--ink)] p-3 mb-5">
             <div className="font-pixel text-[9px] tracking-widest uppercase text-coral mb-1">
-              the date
+              data
             </div>
             <div className="font-display text-xl leading-tight text-ink whitespace-pre-wrap break-words">
               {idea.body}
@@ -158,7 +160,7 @@ export default function JarCompleteSheet({
 
           {/* Photo */}
           <label className="font-pixel text-[10px] tracking-widest uppercase text-ink block mb-2">
-            photo · optional
+            snimka · po izbor
           </label>
           {photoPreview ? (
             <div className="relative mb-4">
@@ -166,7 +168,7 @@ export default function JarCompleteSheet({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={photoPreview}
-                  alt="Selected for date log"
+                  alt="Izbrana za datata"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -175,7 +177,7 @@ export default function JarCompleteSheet({
                 disabled={busy}
                 className="absolute top-2 right-2 px-2 py-1 border-2 border-paper bg-ink text-paper font-pixel text-[9px] tracking-widest uppercase cursor-pointer active:translate-x-[1px] active:translate-y-[1px] disabled:opacity-50"
               >
-                remove
+                premahni
               </button>
             </div>
           ) : (
@@ -190,22 +192,19 @@ export default function JarCompleteSheet({
                 disabled={busy}
                 className="px-3 py-4 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
               >
-                pick from library
+                izberi ot tela
               </button>
               <button
                 onClick={() => {
                   if (fileInputRef.current) {
-                    fileInputRef.current.setAttribute(
-                      "capture",
-                      "environment",
-                    );
+                    fileInputRef.current.setAttribute("capture", "environment");
                     fileInputRef.current.click();
                   }
                 }}
                 disabled={busy}
                 className="px-3 py-4 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
               >
-                snap one
+                shtrakni edna
               </button>
             </div>
           )}
@@ -219,12 +218,12 @@ export default function JarCompleteSheet({
 
           {/* Caption */}
           <label className="font-pixel text-[10px] tracking-widest uppercase text-ink block mb-2">
-            caption · optional
+            tekst · po izbor
           </label>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value.slice(0, MAX_CAPTION))}
-            placeholder="what happened. how it felt."
+            placeholder="kakvo pravihme, gotino li beshe..."
             rows={3}
             className="w-full bg-white border-2 border-ink p-3 font-mono text-sm resize-none focus:outline-none focus:border-coral"
           />
@@ -244,7 +243,7 @@ export default function JarCompleteSheet({
               disabled={busy}
               className="px-3 py-2 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
             >
-              cancel
+              otkaji
             </button>
             <button
               onClick={submit}

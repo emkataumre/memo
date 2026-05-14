@@ -85,7 +85,7 @@ export default function NoteComposer({
             commit();
           }
         }}
-        placeholder="write something…"
+        placeholder="napishi neshto…"
         className="w-full p-5 pb-2 bg-transparent text-base resize-none focus:outline-none min-h-24 placeholder:opacity-40"
         rows={3}
       />
@@ -116,17 +116,17 @@ export default function NoteComposer({
             }}
             className="font-pixel text-[10px] tracking-widest uppercase px-2 py-1 border-2 border-ink bg-paper cursor-pointer"
           >
-            post →
+            pusni →
           </button>
         </div>
         <div className="flex gap-1.5">
           <ToneChip
-            label="note"
+            label="belejka"
             active={tone === "note"}
             onClick={() => setTone("note")}
           />
           <ToneChip
-            label="quote"
+            label="citat"
             active={tone === "quote"}
             onClick={() => setTone("quote")}
           />

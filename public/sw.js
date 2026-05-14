@@ -4,7 +4,7 @@
  * The activate handler deletes any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = "memo-v4";
+const CACHE_VERSION = "memo-v5";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -84,7 +84,7 @@ function isFlightRequest(req) {
 self.addEventListener("push", (event) => {
   let payload = {
     title: "memo",
-    body: "tap to open",
+    body: "natisni za otvarqne",
     url: "/canvas",
     tag: "memo-default",
   };

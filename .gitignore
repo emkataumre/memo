@@ -42,6 +42,9 @@ ideas.md
 perf-ideas.md
 /scripts/
 
+# supabase migrations — applied via dashboard, not via repo
+/supabase/migrations/
+
 # vercel
 .vercel
 

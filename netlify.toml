@@ -1,0 +1,5 @@
+# Netlify config. Keeps the secrets scanner from flagging the two
+# Supabase public keys — they are designed to ship in the browser
+# bundle (Supabase RLS + the custom JWT are the actual gate).
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"

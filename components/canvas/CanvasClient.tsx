@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanZoom, zoomAtPoint } from "@/lib/canvas/usePanZoom";
 import { lodFromZoom } from "@/lib/canvas/lod";
 import { SpatialIndex } from "@/lib/canvas/spatial-index";
-import { memoDay, isCurrentMemoDay } from "@/lib/memo-day";
+import { memoDay, isCurrentMemoDay, revealWindowOpen } from "@/lib/memo-day";
 import {
   cacheLoadNotes,
   cacheUpsertNote,
@@ -848,11 +848,11 @@ export default function CanvasClient() {
     notes.length > 0 || pinnedPhotos.length > 0 || pinnedSongs.length > 0;
 
   const tonightsPhotos = useMemo(() => {
-    // eslint-disable-next-line react-hooks/purity
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return photos.filter(
-      (p) => !isLocked(p) && Date.parse(p.reveal_at) > cutoff,
-    );
+    const now = new Date();
+    // Window: reveal_at ≤ now < next local midnight after reveal_at.
+    // After midnight, today's batch falls out and the locked-countdown
+    // view takes over for tomorrow's batch.
+    return photos.filter((p) => revealWindowOpen(p, now));
     // revealTick: same reason as pinnedPhotos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, revealTick]);

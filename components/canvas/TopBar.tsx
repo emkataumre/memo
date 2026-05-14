@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Photo } from "@/lib/types";
-import { minutesUntilNextReveal } from "@/lib/memo-day";
+import { minutesUntilNextReveal, revealWindowOpen } from "@/lib/memo-day";
 import { isLocked } from "@/lib/photos/derive";
 import PushButton from "./PushButton";
 
@@ -32,24 +32,29 @@ export default function TopBar({
     router.prefetch("/jar");
   }, [router]);
 
+  // Minute tick keeps the reveal-window filter accurate around the
+  // 21:00 → midnight boundary even when no new photos arrive to
+  // invalidate the memo deps.
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMinuteTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const lockedCount = photos.filter((p) => isLocked(p)).length;
   const tonightsCount = useMemo(() => {
-    // eslint-disable-next-line react-hooks/purity
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return photos.filter(
-      (p) => !isLocked(p) && Date.parse(p.reveal_at) > cutoff,
-    ).length;
-  }, [photos]);
+    const now = new Date();
+    return photos.filter((p) => revealWindowOpen(p, now)).length;
+    // minuteTick: forces recompute at midnight rollover.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos, minuteTick]);
   const tonightsUnpinned = useMemo(() => {
-    // eslint-disable-next-line react-hooks/purity
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const now = new Date();
     return photos.filter(
-      (p) =>
-        !isLocked(p) &&
-        p.pinned_at === null &&
-        Date.parse(p.reveal_at) > cutoff,
+      (p) => revealWindowOpen(p, now) && p.pinned_at === null,
     ).length;
-  }, [photos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos, minuteTick]);
 
   return (
     <header className="sticky top-0 h-11 bg-ink text-paper flex items-center px-3 z-50 border-b-2 border-ink gap-2">
@@ -64,14 +69,14 @@ export default function TopBar({
         )}
       </span>
       <div className="flex-1 flex items-center justify-center">
-        {lockedCount > 0 ? (
-          <Countdown onClick={onOpenRoll} />
-        ) : tonightsCount > 0 ? (
+        {tonightsCount > 0 ? (
           <RevealChip
             unpinned={tonightsUnpinned}
             total={tonightsCount}
             onClick={onOpenReveal}
           />
+        ) : lockedCount > 0 ? (
+          <Countdown onClick={onOpenRoll} />
         ) : null}
       </div>
       <PushButton />

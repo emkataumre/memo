@@ -37,6 +37,10 @@ yarn-error.log*
 # spec stays local — too detailed for public repo
 tech-spec.md
 
+# brainstorm + local maintenance scripts
+ideas.md
+/scripts/
+
 # vercel
 .vercel
 

@@ -5,4 +5,4 @@
   # NEXT_PUBLIC_SUPABASE_URL holds the same value as SUPABASE_URL, so
   # the scanner finds the URL in the bundle and double-flags it under
   # the server-only name. Add both to the omit list.
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_URL"
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_URL,NEXT_PUBLIC_VAPID_PUBLIC_KEY"

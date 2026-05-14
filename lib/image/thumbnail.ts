@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Centre-crop the source to a square of `size` × `size` JPEG.
+ * Centre-crop the source to a square of `size` × `size` WebP.
  * Used for canvas/gallery thumbnails to keep DOM cheap. See tech-spec §14.3.
  */
 export async function makeSquareThumbnail(
@@ -14,13 +14,13 @@ export async function makeSquareThumbnail(
     const minEdge = Math.min(bitmap.width, bitmap.height);
     const sx = (bitmap.width - minEdge) / 2;
     const sy = (bitmap.height - minEdge) / 2;
-    return await cropToJpeg(bitmap, sx, sy, minEdge, minEdge, size, quality);
+    return await cropToWebp(bitmap, sx, sy, minEdge, minEdge, size, quality);
   } finally {
     bitmap.close?.();
   }
 }
 
-async function cropToJpeg(
+async function cropToWebp(
   bitmap: ImageBitmap,
   sx: number,
   sy: number,
@@ -34,7 +34,7 @@ async function cropToJpeg(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, size, size);
-    return await canvas.convertToBlob({ type: "image/jpeg", quality });
+    return await canvas.convertToBlob({ type: "image/webp", quality });
   }
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -45,7 +45,7 @@ async function cropToJpeg(
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
-      "image/jpeg",
+      "image/webp",
       quality,
     );
   });

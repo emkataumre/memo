@@ -35,22 +35,22 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServer();
   const photoId = crypto.randomUUID();
   const day = memoDay();
-  const fullPath = `${day}/${photoId}.jpg`;
-  const thumbPath = `${day}/${photoId}_thumb.jpg`;
+  const fullPath = `${day}/${photoId}.webp`;
+  const thumbPath = `${day}/${photoId}_thumb.webp`;
 
   const fullBuffer = await file.arrayBuffer();
   const thumbBuffer = await thumb.arrayBuffer();
 
   const { error: e1 } = await supabase.storage
     .from(STORAGE_BUCKET)
-    .upload(fullPath, fullBuffer, { contentType: "image/jpeg", upsert: false });
+    .upload(fullPath, fullBuffer, { contentType: "image/webp", upsert: false });
   if (e1)
     return NextResponse.json({ error: e1.message }, { status: 500 });
 
   const { error: e2 } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(thumbPath, thumbBuffer, {
-      contentType: "image/jpeg",
+      contentType: "image/webp",
       upsert: false,
     });
   if (e2) {

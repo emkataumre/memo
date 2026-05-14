@@ -24,7 +24,8 @@ interface PhotoRow {
 }
 
 function thumbPathFor(fullPath: string): string {
-  // foo/bar/abc.jpg → foo/bar/abc_thumb.jpg
+  // foo/bar/abc.webp → foo/bar/abc_thumb.webp
+  // Extension-agnostic so historical .jpg uploads still resolve.
   const dot = fullPath.lastIndexOf(".");
   if (dot < 0) return `${fullPath}_thumb`;
   return `${fullPath.slice(0, dot)}_thumb${fullPath.slice(dot)}`;

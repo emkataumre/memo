@@ -4,10 +4,11 @@
  * The activate handler deletes any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = "memo-v1";
+const CACHE_VERSION = "memo-v2";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const RSC_CACHE = `${CACHE_VERSION}-rsc`;
 
 // HTML routes that should boot offline. The proxy still gates them on
 // the passphrase cookie when online; the cached shell only renders the
@@ -58,6 +59,17 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isFlightRequest(req) {
+  // Next.js App Router fetches an RSC payload on every client-side
+  // navigation and prefetch. These do not have request.mode === "navigate"
+  // because they're internal fetches, so without this branch the SW
+  // never sees them and offline navigation hangs.
+  return (
+    req.headers.get("RSC") === "1" ||
+    req.headers.get("Next-Router-Prefetch") === "1"
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -73,6 +85,14 @@ self.addEventListener("fetch", (event) => {
   // Hashed Next.js chunks: immutable, cache-first forever.
   if (sameOrigin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(req, STATIC_CACHE));
+    return;
+  }
+
+  // RSC payloads (App Router client-side navigation + prefetch).
+  // Network-first with a cache fallback so offline navigation between
+  // pages we've already visited (or prefetched) keeps working.
+  if (sameOrigin && isFlightRequest(req)) {
+    event.respondWith(networkFirstRsc(req));
     return;
   }
 
@@ -118,6 +138,24 @@ async function staleWhileRevalidate(request, cacheName) {
     })
     .catch(() => cached);
   return cached ?? networkPromise;
+}
+
+async function networkFirstRsc(request) {
+  const cache = await caches.open(RSC_CACHE);
+  try {
+    const res = await fetch(request);
+    if (res.ok) cache.put(request, res.clone());
+    return res;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    // Fall back to a generic "page not cached yet" so the client at
+    // least gets a defined response and can show its own offline state.
+    return new Response("", {
+      status: 503,
+      headers: { "Content-Type": "text/x-component" },
+    });
+  }
 }
 
 async function networkFirstShell(request) {

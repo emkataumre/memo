@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Photo } from "@/lib/types";
 import { minutesUntilNextReveal } from "@/lib/memo-day";
 import { isLocked } from "@/lib/photos/derive";
@@ -11,6 +12,7 @@ interface Props {
   onOpenReveal: () => void;
   onOpenArchive: () => void;
   photos: Photo[];
+  partnerPresent: boolean;
 }
 
 export default function TopBar({
@@ -19,7 +21,9 @@ export default function TopBar({
   onOpenReveal,
   onOpenArchive,
   photos,
+  partnerPresent,
 }: Props) {
+  const router = useRouter();
   const lockedCount = photos.filter((p) => isLocked(p)).length;
   const tonightsCount = useMemo(() => {
     // eslint-disable-next-line react-hooks/purity
@@ -41,8 +45,15 @@ export default function TopBar({
 
   return (
     <header className="sticky top-0 h-11 bg-ink text-paper flex items-center px-3 z-50 border-b-2 border-ink gap-2">
-      <span className="font-display text-2xl text-coral leading-none flex-shrink-0">
+      <span className="font-display text-2xl text-coral leading-none flex-shrink-0 relative">
         memo
+        {partnerPresent && (
+          <span
+            aria-label="Partner online"
+            title="partner online"
+            className="absolute -top-0.5 -right-2 w-2 h-2 rounded-full bg-coral animate-pulse shadow-[0_0_6px_var(--coral)]"
+          />
+        )}
       </span>
       <div className="flex-1 flex items-center justify-center">
         {lockedCount > 0 ? (
@@ -55,6 +66,30 @@ export default function TopBar({
           />
         ) : null}
       </div>
+      <button
+        onClick={() => router.push("/jar")}
+        aria-label="Open date jar"
+        className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0"
+      >
+        <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
+          {/* Cap */}
+          <rect x="5" y="2" width="6" height="1.6" fill="currentColor" />
+          {/* Body */}
+          <path
+            d="M 4 4 Q 3.5 4.5, 3.5 5.5 L 3.5 12.5 Q 3.5 14, 5 14 L 11 14 Q 12.5 14, 12.5 12.5 L 12.5 5.5 Q 12.5 4.5, 12 4 Z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            fill="none"
+          />
+          {/* Fill line */}
+          <path
+            d="M 4 9.5 L 12 9.5"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            opacity="0.7"
+          />
+        </svg>
+      </button>
       <button
         onClick={onOpenArchive}
         aria-label="Open archive"
@@ -69,11 +104,7 @@ export default function TopBar({
             stroke="currentColor"
             strokeWidth="1.6"
           />
-          <path
-            d="M2 6 L14 6"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          />
+          <path d="M2 6 L14 6" stroke="currentColor" strokeWidth="1.6" />
           <path
             d="M6 9 L10 9"
             stroke="currentColor"
@@ -85,9 +116,9 @@ export default function TopBar({
       <button
         onClick={onEnterZen}
         aria-label="Enter zen mode"
-        className="font-pixel text-xs tracking-widest uppercase border-2 border-paper px-2.5 py-1 flex items-center gap-2 cursor-pointer active:bg-paper active:text-ink select-none flex-shrink-0"
+        className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0"
       >
-        <svg viewBox="0 0 14 14" className="w-3 h-3" fill="none">
+        <svg viewBox="0 0 14 14" className="w-4 h-4" fill="none">
           <circle
             cx="7"
             cy="7"
@@ -97,7 +128,6 @@ export default function TopBar({
           />
           <circle cx="7" cy="7" r="1.6" fill="currentColor" />
         </svg>
-        zen
       </button>
     </header>
   );

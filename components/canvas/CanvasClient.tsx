@@ -18,6 +18,7 @@ import {
 } from "@/lib/cache/indexeddb";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import { subscribeCanvas } from "@/lib/supabase/realtime";
+import { subscribePresence } from "@/lib/supabase/presence";
 import { isLocked } from "@/lib/photos/derive";
 import { signCache } from "@/lib/photos/sign-cache";
 import { useSelf } from "@/lib/self/useSelf";
@@ -40,6 +41,7 @@ import MiniMap from "./MiniMap";
 import ZenExit from "./ZenExit";
 import ZenZoomBar from "./ZenZoomBar";
 import type {
+  Author,
   Note,
   NoteColor,
   Photo,
@@ -161,6 +163,43 @@ export default function CanvasClient() {
   // Bumped when a reveal boundary passes so the locked → revealed
   // derivations recompute even though no DB row changed.
   const [revealTick, setRevealTick] = useState(0);
+
+  // Counts how many snapshot resyncs have completed. We use the first
+  // tick to fire the initial jump-to-today camera move so the app
+  // opens framed on the current memo-day instead of at (0,0,1).
+  const [resyncCount, setResyncCount] = useState(0);
+
+  // Authors currently connected to the presence channel. The TopBar
+  // shows a subtle dot when the partner (i.e. anyone other than self)
+  // is in this set.
+  const [presentAuthors, setPresentAuthors] = useState<Set<Author>>(
+    () => new Set(),
+  );
+
+  useEffect(() => {
+    if (!self) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    (async () => {
+      try {
+        unsubscribe = await subscribePresence(self, {
+          onChange: (present) => {
+            if (!cancelled) setPresentAuthors(present);
+          },
+        });
+      } catch (err) {
+        console.error("presence subscribe failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [self]);
+
+  const partnerPresent = self
+    ? Array.from(presentAuthors).some((a) => a !== self)
+    : false;
 
   useEffect(() => {
     let cancelled = false;
@@ -294,6 +333,7 @@ export default function CanvasClient() {
       setNotes(mergedNotes);
       setPhotos(mergedPhotos);
       setSongs(mergedSongs);
+      setResyncCount((n) => n + 1);
 
       const revealedIds = mergedPhotos
         .filter((p) => !isLocked(p))
@@ -707,8 +747,8 @@ export default function CanvasClient() {
     }
     for (const s of pinnedSongs) {
       if (s.pinned_x !== null && s.pinned_y !== null) {
-        xs.push(s.pinned_x, s.pinned_x + 240);
-        ys.push(s.pinned_y, s.pinned_y + 80);
+        xs.push(s.pinned_x, s.pinned_x + 280);
+        ys.push(s.pinned_y, s.pinned_y + 160);
       }
     }
     if (xs.length === 0) {
@@ -751,13 +791,21 @@ export default function CanvasClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, revealTick]);
 
-  const jumpToToday = useCallback(() => {
+  const jumpToToday = useCallback((durationArg?: number) => {
     if (!vpSize) return;
+    // Defensive: if a caller accidentally passes a non-number (e.g. an
+    // onClick event object), fall back to the default. Without this,
+    // animateTo divides by a non-finite value and the viewport becomes
+    // NaN forever.
+    const duration =
+      typeof durationArg === "number" && Number.isFinite(durationArg)
+        ? durationArg
+        : 400;
     const today = memoDay();
     const NOTE_W = 208;
     const NOTE_H = 130;
-    const SONG_W = 240;
-    const SONG_H = 80;
+    const SONG_W = 280;
+    const SONG_H = 160;
     const xs: number[] = [];
     const ys: number[] = [];
     for (const n of notes) {
@@ -783,7 +831,10 @@ export default function CanvasClient() {
       }
     }
     if (xs.length === 0) {
-      animateTo({ x: vpSize.width / 2, y: vpSize.height / 2, zoom: 1 }, 280);
+      animateTo(
+        { x: vpSize.width / 2, y: vpSize.height / 2, zoom: 1 },
+        duration === 0 ? 0 : 280,
+      );
       return;
     }
     const minX = Math.min(...xs) - 80;
@@ -802,9 +853,20 @@ export default function CanvasClient() {
         y: vpSize.height / 2 - cy * targetZoom,
         zoom: targetZoom,
       },
-      400,
+      duration,
     );
   }, [notes, pinnedPhotos, pinnedSongs, vpSize, animateTo]);
+
+  // First-paint camera: snap to today's frame as soon as the snapshot
+  // has loaded and the viewport is sized. Avoids the user landing at
+  // (0,0) with nothing in view.
+  const initialJumpRef = useRef(false);
+  useEffect(() => {
+    if (initialJumpRef.current) return;
+    if (resyncCount === 0 || !vpSize) return;
+    initialJumpRef.current = true;
+    jumpToToday(0);
+  }, [resyncCount, vpSize, jumpToToday]);
 
   return (
     <>
@@ -816,6 +878,7 @@ export default function CanvasClient() {
           onOpenReveal={() => setRevealOpen(true)}
           onOpenArchive={() => setArchiveOpen(true)}
           photos={photos}
+          partnerPresent={partnerPresent}
         />
       )}
       {!zen && <TodayAnchor count={todayCount} onJump={jumpToToday} />}

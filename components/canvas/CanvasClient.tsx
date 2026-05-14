@@ -234,15 +234,9 @@ export default function CanvasClient() {
       }
       const row = payload.new as Note;
       lastEventTsRef.current.set(`notes:${row.id}`, ts);
-      setNotes((prev) => {
-        const idx = prev.findIndex((n) => n.id === row.id);
-        if (idx >= 0) {
-          const copy = prev.slice();
-          copy[idx] = row;
-          return copy;
-        }
-        return [...prev, row];
-      });
+      // Touch = top: move (or insert) at the end of the array so the
+      // most recently changed note stacks above older siblings.
+      setNotes((prev) => [...prev.filter((n) => n.id !== row.id), row]);
       void cacheUpsertNote(row);
     }
 
@@ -638,18 +632,20 @@ export default function CanvasClient() {
 
   const resizeNote = useCallback(
     async (id: string, width: number, height: number) => {
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                width,
-                height,
-                updated_at: new Date().toISOString(),
-              }
-            : n,
-        ),
-      );
+      setNotes((prev) => {
+        const target = prev.find((n) => n.id === id);
+        if (!target) return prev;
+        const others = prev.filter((n) => n.id !== id);
+        return [
+          ...others,
+          {
+            ...target,
+            width,
+            height,
+            updated_at: new Date().toISOString(),
+          },
+        ];
+      });
       // Temp id: fold the new size into the queued create body so the
       // drain replays at the right dimensions.
       if (id.startsWith("temp-")) {
@@ -692,11 +688,16 @@ export default function CanvasClient() {
   );
 
   const moveNote = useCallback(async (id: string, x: number, y: number) => {
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, x, y, updated_at: new Date().toISOString() } : n,
-      ),
-    );
+    setNotes((prev) => {
+      // Touch = top: pull the moved note out and reinsert at the end.
+      const target = prev.find((n) => n.id === id);
+      if (!target) return prev;
+      const others = prev.filter((n) => n.id !== id);
+      return [
+        ...others,
+        { ...target, x, y, updated_at: new Date().toISOString() },
+      ];
+    });
     // Temp id: the create POST is still queued. Patch its body so the
     // drain replays with the latest coords instead of where the note
     // was originally dropped.

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePanZoom, zoomAtPoint } from "@/lib/canvas/usePanZoom";
 import { lodFromZoom } from "@/lib/canvas/lod";
 import { SpatialIndex } from "@/lib/canvas/spatial-index";
@@ -412,6 +419,13 @@ export default function CanvasClient() {
     return idx;
   }, [notes, pinnedPhotos, pinnedSongs]);
 
+  // The parent transform reads `viewport` live for smooth pan/zoom, but
+  // the spatial-cull computation is deferred. React will skip the
+  // visible-set update during heavy frames and replay it once the main
+  // thread is idle. Net effect: pan/zoom paints at 60fps with cards on
+  // a slightly-stale visible set; the 20% margin absorbs the staleness.
+  const deferredViewport = useDeferredValue(viewport);
+
   const { visibleNotes, visiblePhotos, visibleSongs } = useMemo(() => {
     if (!vpSize)
       return {
@@ -421,10 +435,12 @@ export default function CanvasClient() {
       };
     const marginX = vpSize.width * 0.2;
     const marginY = vpSize.height * 0.2;
-    const x1 = (-viewport.x - marginX) / viewport.zoom;
-    const y1 = (-viewport.y - marginY) / viewport.zoom;
-    const x2 = (vpSize.width + marginX - viewport.x) / viewport.zoom;
-    const y2 = (vpSize.height + marginY - viewport.y) / viewport.zoom;
+    const x1 = (-deferredViewport.x - marginX) / deferredViewport.zoom;
+    const y1 = (-deferredViewport.y - marginY) / deferredViewport.zoom;
+    const x2 =
+      (vpSize.width + marginX - deferredViewport.x) / deferredViewport.zoom;
+    const y2 =
+      (vpSize.height + marginY - deferredViewport.y) / deferredViewport.zoom;
     const visibleKeys = new Set(spatialIndex.query(x1, y1, x2, y2));
     return {
       visibleNotes: notes.filter((n) => visibleKeys.has(`note:${n.id}`)),
@@ -433,9 +449,13 @@ export default function CanvasClient() {
       ),
       visibleSongs: pinnedSongs.filter((s) => visibleKeys.has(`song:${s.id}`)),
     };
-  }, [notes, pinnedPhotos, pinnedSongs, spatialIndex, viewport, vpSize]);
+  }, [notes, pinnedPhotos, pinnedSongs, spatialIndex, deferredViewport, vpSize]);
 
-  const tier = lodFromZoom(viewport.zoom);
+  // Tier transitions are infrequent (twice per full zoom sweep) and
+  // affect the markup of every visible card, so prefer the deferred
+  // viewport here too — keeps the tier-flip render from competing with
+  // the pan/zoom frame.
+  const tier = lodFromZoom(deferredViewport.zoom);
 
   const todayCount = useMemo(() => {
     const today = memoDay();

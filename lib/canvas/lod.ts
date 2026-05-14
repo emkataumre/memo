@@ -9,7 +9,7 @@ export type LodTier = 0 | 1 | 2;
 // activation point so the chrome stays coherent.
 
 export function lodFromZoom(zoom: number): LodTier {
-  if (zoom >= 0.4) return 0;
-  if (zoom >= 0.15) return 1;
+  if (zoom >= 0.25) return 0;
+  if (zoom >= 0.12) return 1;
   return 2;
 }

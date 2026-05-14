@@ -1,6 +1,7 @@
 "use client";
 
 import type { Photo } from "@/lib/types";
+import { usePhotoUrl } from "@/lib/photos/usePhotoUrls";
 
 interface Props {
   photo: Photo | null;
@@ -8,7 +9,8 @@ interface Props {
 }
 
 export default function PhotoViewer({ photo, onClose }: Props) {
-  if (!photo || !photo.full_url) return null;
+  const urls = usePhotoUrl(photo?.id ?? null);
+  if (!photo || !urls?.full_url) return null;
 
   return (
     <div
@@ -20,7 +22,7 @@ export default function PhotoViewer({ photo, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <img
-          src={photo.full_url}
+          src={urls.full_url}
           alt=""
           className="max-w-[80vw] max-h-[75vh] object-contain"
         />

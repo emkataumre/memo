@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Photo } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
+import { usePhotoUrl } from "@/lib/photos/usePhotoUrls";
 
 const HOLD_MS = 600;
 const MOVE_CANCEL = 6;
@@ -42,6 +43,8 @@ export default function PhotoCard({
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
+  const urls = usePhotoUrl(photo.id);
+  const thumbUrl = urls?.thumb_url;
 
   useEffect(() => {
     return () => {
@@ -155,9 +158,7 @@ export default function PhotoCard({
         <div
           className="w-full aspect-square bg-ink/10"
           style={{
-            backgroundImage: photo.thumb_url
-              ? `url(${photo.thumb_url})`
-              : undefined,
+            backgroundImage: thumbUrl ? `url(${thumbUrl})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -206,9 +207,7 @@ export default function PhotoCard({
       <div
         className="w-full aspect-square bg-ink/10"
         style={{
-          backgroundImage: photo.thumb_url
-            ? `url(${photo.thumb_url})`
-            : undefined,
+          backgroundImage: thumbUrl ? `url(${thumbUrl})` : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}

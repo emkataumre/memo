@@ -1,6 +1,7 @@
 "use client";
 
 import type { Photo } from "@/lib/types";
+import { usePhotoUrl, usePhotoUrlPrefetch } from "@/lib/photos/usePhotoUrls";
 
 interface Props {
   photos: Photo[];
@@ -19,6 +20,7 @@ export default function RevealSheet({
   onView,
   onClose,
 }: Props) {
+  usePhotoUrlPrefetch(photos.map((p) => p.id));
   const emoCount = photos.filter((p) => p.author === "emo").length;
   const magiCount = photos.filter((p) => p.author === "magi").length;
 
@@ -148,6 +150,7 @@ function PhotoTile({
   onUnpin: () => void;
   onView: () => void;
 }) {
+  const urls = usePhotoUrl(photo.id);
   const pinned = photo.pinned_at !== null;
   return (
     <div
@@ -158,7 +161,9 @@ function PhotoTile({
         onClick={onView}
         className="w-full aspect-square block bg-ink/10 cursor-zoom-in"
         style={{
-          backgroundImage: photo.thumb_url ? `url(${photo.thumb_url})` : undefined,
+          backgroundImage: urls?.thumb_url
+            ? `url(${urls.thumb_url})`
+            : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}

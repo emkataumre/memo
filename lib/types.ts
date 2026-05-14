@@ -13,21 +13,18 @@ export interface Note {
   updated_at: string;
 }
 
-/**
- * Photo as exposed to the client.
- * - `locked: true` (pre-reveal) → `thumb_url` / `full_url` are null. The
- *   client only knows it exists and who took it.
- * - `locked: false` (post-reveal) → signed URLs are present.
- */
+// Photo row as it lives in the DB. The client derives `locked` from
+// `reveal_at` (see lib/photos/derive.ts) and resolves signed URLs on
+// demand via the sign-cache (see lib/photos/sign-cache.ts). The raw
+// `storage_path` is harmless without a signed URL — the bucket is
+// private.
 export interface Photo {
   id: string;
   author: Author;
+  storage_path: string;
   taken_at: string;
   reveal_at: string;
   caption: string | null;
-  locked: boolean;
-  thumb_url: string | null;
-  full_url: string | null;
   pinned_x: number | null;
   pinned_y: number | null;
   pinned_rotation: number;

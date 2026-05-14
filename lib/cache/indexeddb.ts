@@ -3,6 +3,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Note, Photo, Song } from "@/lib/types";
 
+export interface SignedUrlRow {
+  id: string;
+  thumb_url: string;
+  full_url: string;
+  expires_at: number;
+}
+
 interface MemoDB extends DBSchema {
   notes: {
     key: string;
@@ -17,6 +24,10 @@ interface MemoDB extends DBSchema {
     key: string;
     value: Song;
   };
+  signed_urls: {
+    key: string;
+    value: SignedUrlRow;
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<MemoDB>> | null = null;
@@ -26,7 +37,7 @@ function getDB(): Promise<IDBPDatabase<MemoDB>> {
     return Promise.reject(new Error("indexedDB not available"));
   }
   if (!dbPromise) {
-    dbPromise = openDB<MemoDB>("memo", 4, {
+    dbPromise = openDB<MemoDB>("memo", 5, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           const notes = db.createObjectStore("notes", { keyPath: "id" });
@@ -50,6 +61,9 @@ function getDB(): Promise<IDBPDatabase<MemoDB>> {
           if (raw.objectStoreNames.contains("meta")) {
             raw.deleteObjectStore("meta");
           }
+        }
+        if (oldVersion < 5) {
+          db.createObjectStore("signed_urls", { keyPath: "id" });
         }
       },
     });
@@ -120,6 +134,33 @@ export async function cacheDelete(
   try {
     const db = await getDB();
     await db.delete(store, id);
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function cacheLoadSignedUrls(): Promise<SignedUrlRow[]> {
+  try {
+    const db = await getDB();
+    return await db.getAll("signed_urls");
+  } catch {
+    return [];
+  }
+}
+
+export async function cacheUpsertSignedUrl(row: SignedUrlRow): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.put("signed_urls", row);
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function cacheDeleteSignedUrl(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    await db.delete("signed_urls", id);
   } catch {
     /* best-effort */
   }

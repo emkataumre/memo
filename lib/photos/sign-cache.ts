@@ -1,11 +1,21 @@
 "use client";
 
+import {
+  cacheLoadSignedUrls,
+  cacheUpsertSignedUrl,
+  cacheDeleteSignedUrl,
+} from "@/lib/cache/indexeddb";
+
 // Browser-side cache of signed URLs for revealed photos. The server
 // (/api/photos/sign) is the only path that can mint URLs because the
 // bucket is private; this cache batches client requests (16ms debounce)
 // so a freshly-loaded canvas with N revealed photos costs one HTTP call
 // instead of N. URLs are invalidated five minutes before their server
 // TTL so a render never holds an expired link.
+//
+// Entries are mirrored to IndexedDB so a cold reload within the URL's
+// 1h TTL skips the re-sign roundtrip entirely (hydrate() seeds `map`
+// before the first render reaches photo components).
 
 export interface CachedUrl {
   thumb_url: string;
@@ -33,12 +43,44 @@ class SignCache {
   private inflight = new Set<string>();
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
   private version = 0;
+  private hydratePromise: Promise<void> | null = null;
 
   get(id: string): CachedUrl | null {
     const cached = this.map.get(id);
     if (!cached) return null;
     if (cached.expires_at - Date.now() < REFRESH_LEEWAY_MS) return null;
     return cached;
+  }
+
+  // Seed in-memory map from IndexedDB. Filters out entries that fall
+  // inside the refresh-leeway window (those would be returned as null
+  // by get() anyway, and keeping them just delays the inevitable
+  // re-sign). Idempotent: repeated calls share one promise.
+  hydrate(): Promise<void> {
+    if (this.hydratePromise) return this.hydratePromise;
+    this.hydratePromise = (async () => {
+      const rows = await cacheLoadSignedUrls();
+      const cutoff = Date.now() + REFRESH_LEEWAY_MS;
+      let added = false;
+      const stale: string[] = [];
+      for (const row of rows) {
+        if (row.expires_at > cutoff) {
+          this.map.set(row.id, {
+            thumb_url: row.thumb_url,
+            full_url: row.full_url,
+            expires_at: row.expires_at,
+          });
+          added = true;
+        } else {
+          stale.push(row.id);
+        }
+      }
+      if (stale.length) {
+        for (const id of stale) void cacheDeleteSignedUrl(id);
+      }
+      if (added) this.emit();
+    })();
+    return this.hydratePromise;
   }
 
   // Snapshot for useSyncExternalStore-style consumers. Changes whenever
@@ -63,7 +105,10 @@ class SignCache {
   }
 
   evict(id: string): void {
-    if (this.map.delete(id)) this.emit();
+    if (this.map.delete(id)) {
+      void cacheDeleteSignedUrl(id);
+      this.emit();
+    }
   }
 
   subscribe(fn: Listener): () => void {
@@ -95,11 +140,13 @@ class SignCache {
       let changed = false;
       for (const [id, val] of Object.entries(data.urls ?? {})) {
         if ("thumb_url" in val && "full_url" in val && "expires_at" in val) {
-          this.map.set(id, {
+          const entry: CachedUrl = {
             thumb_url: val.thumb_url,
             full_url: val.full_url,
             expires_at: val.expires_at,
-          });
+          };
+          this.map.set(id, entry);
+          void cacheUpsertSignedUrl({ id, ...entry });
           changed = true;
         }
       }

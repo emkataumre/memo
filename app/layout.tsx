@@ -51,11 +51,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return (
     <html
       lang="en"
       className={`${caprasimo.variable} ${jetbrainsMono.variable} ${pixelifySans.variable} h-full antialiased`}
     >
+      <head>
+        {supabaseUrl ? (
+          <>
+            <link rel="preconnect" href={supabaseUrl} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={supabaseUrl} />
+          </>
+        ) : null}
+      </head>
       <body className="min-h-full">
         <RuntimeTheme />
         <RegisterSW />

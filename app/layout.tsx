@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Caprasimo, JetBrains_Mono, Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 import RuntimeTheme from "@/components/RuntimeTheme";
+import RegisterSW from "@/components/RegisterSW";
 
 const caprasimo = Caprasimo({
   weight: "400",
@@ -57,6 +58,7 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         <RuntimeTheme />
+        <RegisterSW />
         {children}
       </body>
     </html>

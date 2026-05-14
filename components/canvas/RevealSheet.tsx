@@ -30,12 +30,12 @@ export default function RevealSheet({
         <span className="font-display text-2xl text-coral leading-none normal-case tracking-normal">
           memo
         </span>
-        <span className="opacity-65 hidden sm:inline">reveal feed</span>
+        <span className="opacity-65 hidden sm:inline">pokaji</span>
         <button
           onClick={onClose}
           className="border-2 border-paper px-2.5 py-1 active:bg-paper active:text-ink cursor-pointer"
         >
-          back
+          nazad
         </button>
       </header>
 
@@ -65,10 +65,10 @@ export default function RevealSheet({
         />
 
         <h1 className="font-display text-7xl sm:text-8xl leading-none">
-          tonight<span className="text-coral">.</span>
+          dnes<span className="text-coral">.</span>
         </h1>
         <div className="mt-12 font-display text-xl">
-          {photos.length} {photos.length === 1 ? "photo" : "photos"}
+          {photos.length} {photos.length === 1 ? "snimka" : "snimki"}
           {emoCount + magiCount > 0 && (
             <span className="text-coral mx-2">·</span>
           )}
@@ -83,7 +83,7 @@ export default function RevealSheet({
           )}
         </div>
         <div className="mt-3 font-pixel text-[10px] tracking-widest uppercase text-ink-soft">
-          tap a pin to push to canvas
+          natisni karfichka za platnoto
         </div>
       </div>
 
@@ -167,7 +167,7 @@ function PhotoTile({
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        aria-label="View full photo"
+        aria-label="Vij snimkata"
       />
       <div className="absolute bottom-2.5 left-3.5 right-3.5 flex justify-between font-pixel text-[10px] uppercase tracking-widest text-ink-soft">
         <span className="text-ink">{photo.author}</span>
@@ -175,7 +175,7 @@ function PhotoTile({
       </div>
       <button
         onClick={pinned ? onUnpin : onPin}
-        aria-label={pinned ? "Unpin from canvas" : "Pin to canvas"}
+        aria-label={pinned ? "Otkachi ot platnoto" : "Zakachi na platnoto"}
         className={`absolute -top-3.5 -right-3.5 w-11 h-11 border-2 border-ink shadow-[3px_3px_0_var(--ink)] flex items-center justify-center cursor-pointer active:translate-x-[3px] active:translate-y-[3px] active:shadow-none ${
           pinned ? "bg-coral" : "bg-paper"
         }`}
@@ -212,7 +212,7 @@ function PhotoTile({
       </button>
       {pinned && (
         <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 -translate-y-[180%] bg-ink text-paper font-pixel text-[9px] tracking-widest uppercase px-1.5 py-0.5 pointer-events-none">
-          pinned
+          zakachena
         </div>
       )}
     </div>

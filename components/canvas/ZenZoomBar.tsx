@@ -15,7 +15,7 @@ export default function ZenZoomBar({
 }: Props) {
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex flex-row gap-2 items-center opacity-40 hover:opacity-80 focus-within:opacity-80 transition-opacity">
-      <Btn onClick={onZoomOut} aria-label="Zoom out">
+      <Btn onClick={onZoomOut} aria-label="Namali">
         <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
           <path
             d="M5 12 L19 12"
@@ -25,10 +25,10 @@ export default function ZenZoomBar({
           />
         </svg>
       </Btn>
-      <Btn onClick={onFit} disabled={!canFit} aria-label="Fit all content">
-        <span className="font-pixel text-[10px] tracking-widest">FIT</span>
+      <Btn onClick={onFit} disabled={!canFit} aria-label="Pobiraj vsichko">
+        <span className="font-pixel text-[10px] tracking-widest">POBI</span>
       </Btn>
-      <Btn onClick={onZoomIn} aria-label="Zoom in">
+      <Btn onClick={onZoomIn} aria-label="Uvelichi">
         <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
           <path
             d="M12 5 L12 19 M5 12 L19 12"

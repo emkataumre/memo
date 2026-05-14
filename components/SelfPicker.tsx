@@ -27,7 +27,7 @@ export default function SelfPicker() {
         <header className="bg-ink text-paper px-3 py-1.5 flex items-center justify-between font-pixel text-xs tracking-widest uppercase">
           <span className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-coral"></span>
-            memo · HELLO
+            memo · ZDRASTI
           </span>
           <span className="w-4 h-4 border-2 border-paper flex items-center justify-center text-[8px]">
             ✕
@@ -42,11 +42,9 @@ export default function SelfPicker() {
           }}
         >
           <h2 className="font-display text-3xl leading-none mb-1">
-            who&apos;s this?
+            koi si ti?
           </h2>
-          <p className="text-xs text-ink-soft mb-5">
-            label this device. you can change it later in settings.
-          </p>
+          <p className="text-xs text-ink-soft mb-5">obozachi ustroystvoto.</p>
           <div className="flex gap-3">
             <button
               onClick={() => pick("emo")}

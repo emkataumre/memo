@@ -32,7 +32,7 @@ export default function PhotoViewer({ photo, onClose }: Props) {
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label="Zatvori"
           className="absolute -top-3 -right-3 w-9 h-9 bg-paper border-2 border-ink flex items-center justify-center font-pixel text-sm cursor-pointer active:translate-x-[2px] active:translate-y-[2px]"
         >
           ✕

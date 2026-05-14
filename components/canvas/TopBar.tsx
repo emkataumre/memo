@@ -69,8 +69,8 @@ export default function TopBar({
         memo
         {partnerPresent && (
           <span
-            aria-label="Partner online"
-            title="partner online"
+            aria-label="Partnyora e onlayn"
+            title="partnyora e onlayn"
             className="absolute -top-0.5 -right-2 w-2 h-2 rounded-full bg-coral animate-pulse shadow-[0_0_6px_var(--coral)]"
           />
         )}
@@ -89,7 +89,7 @@ export default function TopBar({
       <PushButton />
       <button
         onClick={() => router.push("/jar")}
-        aria-label="Open date jar"
+        aria-label="Otvori burkanche sus sreshti"
         className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0"
       >
         <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
@@ -113,7 +113,7 @@ export default function TopBar({
       </button>
       <button
         onClick={onOpenArchive}
-        aria-label="Open archive"
+        aria-label="Otvori arhiv"
         className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0"
       >
         <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
@@ -136,7 +136,7 @@ export default function TopBar({
       </button>
       <button
         onClick={onEnterZen}
-        aria-label="Enter zen mode"
+        aria-label="Vlez v zen rejim"
         className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0"
       >
         <svg viewBox="0 0 14 14" className="w-4 h-4" fill="none">
@@ -166,13 +166,13 @@ function Countdown({ onClick }: { onClick: () => void }) {
   const mm = minutes % 60;
   const label =
     hh > 0
-      ? `${hh}H ${String(mm).padStart(2, "0")}M`
-      : `${String(mm).padStart(2, "0")}M`;
+      ? `${hh}ch ${String(mm).padStart(2, "0")}m`
+      : `${String(mm).padStart(2, "0")}m`;
 
   return (
     <button
       onClick={onClick}
-      aria-label="View today's roll"
+      aria-label="Vij dneshniq den"
       className="font-pixel text-[11px] tracking-widest uppercase border-2 border-coral text-coral px-2 py-0.5 flex items-center gap-2 cursor-pointer active:bg-coral active:text-ink"
     >
       <svg viewBox="0 0 14 14" className="w-2.5 h-2.5" fill="none">
@@ -209,11 +209,11 @@ function RevealChip({
   return (
     <button
       onClick={onClick}
-      aria-label="View tonight's reveal"
+      aria-label="Vij dneshnoto razkrivane"
       className="font-pixel text-[11px] tracking-widest uppercase border-2 border-ink bg-coral text-ink px-2 py-0.5 flex items-center gap-2 cursor-pointer active:translate-x-[1px] active:translate-y-[1px]"
     >
       <span className="inline-block w-1.5 h-1.5 bg-ink" />
-      today · {showCount} →
+      dnes · {showCount} →
     </button>
   );
 }

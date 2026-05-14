@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "memo",
     short_name: "memo",
-    description: "private. two of us. forever.",
+    description: "",
     start_url: "/canvas",
     display: "standalone",
     background_color: "#F2E8D5",

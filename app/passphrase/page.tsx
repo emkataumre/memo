@@ -39,10 +39,10 @@ export default function PassphrasePage() {
         router.refresh();
         return;
       }
-      setError("not it.");
+      setError("ne e tova.");
       setValue("");
     } catch {
-      setError("network issue.");
+      setError("greshka s mrejata.");
     }
     setLoading(false);
   }
@@ -55,7 +55,7 @@ export default function PassphrasePage() {
         <header className="bg-ink text-paper px-3 py-1.5 flex items-center justify-between font-pixel text-xs tracking-widest uppercase">
           <span className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-coral"></span>
-            memo · ENTER
+            memo · VHOD
           </span>
           <span className="w-4 h-4 border-2 border-paper flex items-center justify-center text-[8px]">
             ✕
@@ -71,17 +71,17 @@ export default function PassphrasePage() {
           }}
         >
           <h1 className="font-display text-3xl leading-none mb-1">
-            knock knock.
+            chuk-chuk.
           </h1>
           <p className="text-xs text-ink-soft mb-5">
-            датата на първата ни среща
+            datata na purvata ni sreshta
           </p>
 
           {/* Display */}
           <div className="w-full bg-white border-2 border-ink px-3 py-3 mb-4 min-h-[52px] flex items-center justify-center gap-2 select-none">
             {value.length === 0 ? (
               <span className="font-pixel text-xs tracking-widest uppercase text-ink-soft">
-                enter passphrase
+                vavedi parola
               </span>
             ) : (
               dots.map((i) => (

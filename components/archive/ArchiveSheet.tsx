@@ -18,18 +18,18 @@ type Tab = "photos" | "songs";
 type Filter = "all" | Author;
 
 const MONTHS = [
-  "JAN",
-  "FEB",
+  "YAN",
+  "FEV",
   "MAR",
   "APR",
   "MAY",
-  "JUN",
-  "JUL",
-  "AUG",
+  "YUN",
+  "YUL",
+  "AVG",
   "SEP",
-  "OCT",
-  "NOV",
-  "DEC",
+  "OKT",
+  "NOE",
+  "DEK",
 ];
 
 function formatMemoDay(d: string): string {
@@ -39,7 +39,7 @@ function formatMemoDay(d: string): string {
 
 function dayLabel(d: string): string {
   const today = memoDay();
-  if (d === today) return "TODAY";
+  if (d === today) return "DNES";
   return formatMemoDay(d);
 }
 
@@ -102,25 +102,25 @@ export default function ArchiveSheet({
         <span className="font-display text-2xl text-coral leading-none normal-case tracking-normal">
           memo
         </span>
-        <span className="opacity-65 hidden sm:inline">archive</span>
+        <span className="opacity-65 hidden sm:inline">arhiv</span>
         <button
           onClick={onClose}
           className="border-2 border-paper px-2.5 py-1 active:bg-paper active:text-ink cursor-pointer"
         >
-          back
+          nazad
         </button>
       </header>
 
       <div className="max-w-3xl mx-auto px-5 pt-10 pb-6">
         <h1 className="font-display text-6xl sm:text-7xl leading-none">
-          the archive<span className="text-coral">.</span>
+          arhiv<span className="text-coral">.</span>
         </h1>
         <div className="mt-5 font-pixel text-[11px] tracking-widest uppercase text-ink-soft">
-          <span className="text-ink">{revealedPhotos.length}</span> photos
+          <span className="text-ink">{revealedPhotos.length}</span> snimki
           <span className="text-coral mx-2">·</span>
-          <span className="text-ink">{songs.length}</span> songs
+          <span className="text-ink">{songs.length}</span> pesni
           <span className="text-coral mx-2">·</span>
-          <span className="text-ink">{totalDays}</span> days
+          <span className="text-ink">{totalDays}</span> dni
         </div>
       </div>
 
@@ -130,19 +130,22 @@ export default function ArchiveSheet({
           <TabBtn
             active={tab === "photos"}
             onClick={() => setTab("photos")}
-            label="PHOTOS"
+            label="SNIMKI"
             count={filteredPhotoCount}
           />
           <TabBtn
             active={tab === "songs"}
             onClick={() => setTab("songs")}
-            label="SONGS"
+            label="PESNI"
             count={filteredSongCount}
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-            ALL
+          <FilterChip
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+          >
+            NIE
           </FilterChip>
           <FilterChip
             active={filter === "emo"}
@@ -231,7 +234,7 @@ function PhotosView({
   if (groups.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-5 py-12 text-center font-pixel text-xs tracking-widest uppercase text-ink-soft">
-        no photos yet.
+        oshte nqma snimki.
       </div>
     );
   }
@@ -255,7 +258,7 @@ function SongsView({ groups }: { groups: [string, Song[]][] }) {
   if (groups.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-5 py-12 text-center font-pixel text-xs tracking-widest uppercase text-ink-soft">
-        no songs yet.
+        oshte nqma pesni.
       </div>
     );
   }
@@ -295,7 +298,7 @@ function DayHeader({ day, count }: { day: string; count: number }) {
         </span>
       </div>
       <span className="font-pixel text-[10px] tracking-widest uppercase text-ink-soft">
-        {count} {count === 1 ? "item" : "items"}
+        {count} {count === 1 ? "zapis" : "zapisa"}
       </span>
     </div>
   );
@@ -351,7 +354,7 @@ function SongRow({ song }: { song: Song }) {
       )}
       <div className="min-w-0 flex-1">
         <div className="font-pixel text-[9px] tracking-widest uppercase text-coral">
-          from {song.author}
+          ot {song.author}
         </div>
         <div className="font-mono text-sm truncate">{song.track_name}</div>
         <div className="font-mono text-xs text-ink-soft truncate">

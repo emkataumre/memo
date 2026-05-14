@@ -66,23 +66,23 @@ export default function PushButton() {
 
   const label =
     state.kind === "denied"
-      ? "blocked"
+      ? "blokirano"
       : state.kind === "error"
-        ? "retry"
+        ? "opitay otnovo"
         : state.kind === "working"
           ? "…"
-          : "notify";
+          : "izvesti";
 
   return (
     <button
       onClick={onClick}
-      aria-label="Enable reveal notifications"
+      aria-label="Vklyuchi izvestiq za razkrivane"
       title={
         state.kind === "denied"
-          ? "Notifications blocked in browser settings"
+          ? "Izvestiqta sa blokirani v nastroykite na brauzara"
           : state.kind === "error"
             ? state.message
-            : "Get a notification when tonight unlocks"
+            : "Poluchi izvestie kogato dneshnoto se otkluchva"
       }
       className="w-8 h-8 border-2 border-paper flex items-center justify-center cursor-pointer active:bg-paper active:text-ink flex-shrink-0 relative"
     >

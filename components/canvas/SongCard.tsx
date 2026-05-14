@@ -372,7 +372,7 @@ function CassetteBack({
       {/* Always-on flip-back button. Sits above the iframe via z-index and
           stops pointer propagation so the long-press drag never arms. */}
       <button
-        aria-label="Flip cassette back"
+        aria-label="Oburni kasetata"
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         onClick={(e) => {

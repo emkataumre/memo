@@ -10,8 +10,8 @@ import { broadcast, type PushPayload } from "@/lib/push/server";
 // Body (optional): { title, body, url, tag }. Defaults provided if absent.
 
 const DEFAULT_PAYLOAD: PushPayload = {
-  title: "memo · reveal time",
-  body: "today's roll is unlocking.",
+  title: "memo · vreme za razkrivane",
+  body: "dneshniq den se otkluchva",
   url: "/canvas",
   tag: "memo-reveal",
 };
@@ -39,7 +39,11 @@ export async function POST(req: Request) {
   let payload: PushPayload = DEFAULT_PAYLOAD;
   try {
     const body = (await req.json().catch(() => null)) as PushPayload | null;
-    if (body && typeof body.title === "string" && typeof body.body === "string") {
+    if (
+      body &&
+      typeof body.title === "string" &&
+      typeof body.body === "string"
+    ) {
       payload = {
         title: body.title,
         body: body.body,

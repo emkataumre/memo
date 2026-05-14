@@ -3,18 +3,18 @@
 import { memoDay } from "@/lib/memo-day";
 
 const MONTHS = [
-  "JAN",
-  "FEB",
+  "YAN",
+  "FEV",
   "MAR",
   "APR",
   "MAY",
-  "JUN",
-  "JUL",
-  "AUG",
+  "YUN",
+  "YUL",
+  "AVG",
   "SEP",
-  "OCT",
-  "NOV",
-  "DEC",
+  "OKT",
+  "NOE",
+  "DEK",
 ];
 
 function formatMemoDay(d: string): string {
@@ -33,7 +33,7 @@ export default function TodayAnchor({ count, onJump }: Props) {
   return (
     <button
       onClick={() => onJump()}
-      aria-label="Jump to today"
+      aria-label="vij dnes"
       className="fixed top-[60px] left-4 z-40 font-pixel text-xs tracking-widest uppercase bg-paper border-2 border-coral px-3 py-1.5 flex items-center gap-2.5 shadow-[3px_3px_0_var(--coral)] cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-none select-none"
     >
       <svg viewBox="0 0 12 12" className="w-3 h-3 text-coral">

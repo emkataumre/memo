@@ -65,11 +65,11 @@ export default function JarComposer({ self, onCancel, onSubmitted }: Props) {
         className="w-full max-w-md bg-paper border-2 border-ink shadow-[10px_10px_0_var(--ink)]"
       >
         <header className="bg-ink text-paper px-3 py-1.5 flex items-center justify-between font-pixel text-[11px] tracking-widest uppercase">
-          <span>new idea · {self}</span>
+          <span>nova ideq · {self}</span>
           <button
             onClick={onCancel}
             className="w-4 h-4 border-2 border-paper flex items-center justify-center text-[8px] cursor-pointer"
-            aria-label="Close"
+            aria-label="Zatvori"
           >
             ✕
           </button>
@@ -78,14 +78,18 @@ export default function JarComposer({ self, onCancel, onSubmitted }: Props) {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value.slice(0, MAX_LEN))}
-            placeholder="picnic at the park · sushi night · stargazing on the rooftop…"
+            placeholder="piknik v parka · sushi vecher · zvezdi ot pokriva…"
             autoFocus
             rows={3}
             className="w-full bg-white border-2 border-ink p-3 font-mono text-sm resize-none focus:outline-none focus:border-coral"
           />
           <div className="mt-2 font-pixel text-[9px] tracking-widest uppercase text-ink-soft flex justify-between">
-            <span>{body.length} / {MAX_LEN}</span>
-            <span>once in, only a draw gets it out</span>
+            <span>
+              {body.length} / {MAX_LEN}
+            </span>
+            <span>
+              vednuj kato e vlqzla, moje da q vidim samo ako ni se padne
+            </span>
           </div>
           {error && (
             <p className="mt-2 text-coral font-pixel text-[10px] tracking-widest uppercase">
@@ -98,14 +102,14 @@ export default function JarComposer({ self, onCancel, onSubmitted }: Props) {
               disabled={submitting}
               className="px-3 py-2 border-2 border-ink bg-paper-deep font-pixel text-[10px] tracking-widest uppercase cursor-pointer active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50"
             >
-              cancel
+              otkaji
             </button>
             <button
               onClick={submit}
               disabled={submitting || body.trim().length === 0}
               className="px-3 py-2 border-2 border-ink bg-coral text-ink font-pixel text-[10px] tracking-widest uppercase shadow-[3px_3px_0_var(--ink)] cursor-pointer active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? "…" : "drop in jar"}
+              {submitting ? "…" : "pusni v burkancheto"}
             </button>
           </div>
         </div>

@@ -40,6 +40,7 @@ import ZoomControls from "./ZoomControls";
 import MiniMap from "./MiniMap";
 import ZenExit from "./ZenExit";
 import ZenZoomBar from "./ZenZoomBar";
+import ConnectionToast from "./ConnectionToast";
 import type {
   Author,
   Note,
@@ -168,6 +169,10 @@ export default function CanvasClient() {
   // tick to fire the initial jump-to-today camera move so the app
   // opens framed on the current memo-day instead of at (0,0,1).
   const [resyncCount, setResyncCount] = useState(0);
+
+  // Live Realtime status. `connected` after SUBSCRIBED, false otherwise.
+  // Drives the reconnect toast.
+  const [connected, setConnected] = useState(false);
 
   // Authors currently connected to the presence channel. The TopBar
   // shows a subtle dot when the partner (i.e. anyone other than self)
@@ -360,6 +365,9 @@ export default function CanvasClient() {
           onPhoto: applyPhotoEvent,
           onSong: applySongEvent,
           onResync: resync,
+          onStatus: (status) => {
+            if (!cancelled) setConnected(status === "connected");
+          },
         });
       } catch (err) {
         // getSupabaseBrowser redirects to /passphrase on 401; other
@@ -1000,6 +1008,8 @@ export default function CanvasClient() {
       )}
 
       <PhotoViewer photo={viewing} onClose={() => setViewing(null)} />
+
+      <ConnectionToast connected={connected} />
 
       {/* upload status */}
       {(capture.state !== "idle" || uploadFlash) && (

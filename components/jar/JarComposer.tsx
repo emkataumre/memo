@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Author } from "@/lib/types";
+import { enqueue } from "@/lib/outbox/outbox";
 
 interface Props {
   self: Author;
@@ -33,9 +34,24 @@ export default function JarComposer({ self, onCancel, onSubmitted }: Props) {
         throw new Error(data.error ?? `status ${res.status}`);
       }
       onSubmitted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "failed to add");
-      setSubmitting(false);
+    } catch {
+      // Treat any failure (offline or 5xx) as "queue for later". 4xx
+      // shouldn't happen here — the input is validated client-side and
+      // the route is auth-gated by the proxy.
+      try {
+        await enqueue({
+          tag: "jar:add",
+          method: "POST",
+          path: "/api/jar/add",
+          body: { author: self, body: trimmed },
+        });
+        onSubmitted();
+      } catch (queueErr) {
+        setError(
+          queueErr instanceof Error ? queueErr.message : "failed to add",
+        );
+        setSubmitting(false);
+      }
     }
   }
 

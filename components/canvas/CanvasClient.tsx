@@ -41,6 +41,8 @@ import MiniMap from "./MiniMap";
 import ZenExit from "./ZenExit";
 import ZenZoomBar from "./ZenZoomBar";
 import ConnectionToast from "./ConnectionToast";
+import OutboxBadge from "./OutboxBadge";
+import { drain, enqueue } from "@/lib/outbox/outbox";
 import type {
   Author,
   Note,
@@ -384,6 +386,59 @@ export default function CanvasClient() {
     };
   }, []);
 
+  // Outbox auto-drain. Mutations that failed offline live in IndexedDB
+  // until network returns; we replay them here on online events, tab
+  // visibility, and every 30 s as a safety tick.
+  useEffect(() => {
+    let cancelled = false;
+
+    function applyResult(result: import("@/lib/outbox/outbox").DrainResult) {
+      if (cancelled) return;
+      if (result.status !== "ok") return;
+      if (result.item.tag === "note:create") {
+        const real = (result.response as { note?: Note } | null)?.note;
+        const tempId =
+          typeof result.item.meta?.tempId === "string"
+            ? result.item.meta.tempId
+            : null;
+        if (real && tempId) {
+          setNotes((prev) => {
+            // Drop any real-id row that may have arrived via realtime
+            // already, then swap the tempId entry for the real one.
+            const withoutDup = prev.filter((n) => n.id !== real.id);
+            return withoutDup.map((n) => (n.id === tempId ? real : n));
+          });
+          void cacheUpsertNote(real);
+        }
+      }
+      // Other tags (note:move, jar:add, etc.) just need the queue drained;
+      // realtime / refetch reconciles the state.
+    }
+
+    function tick() {
+      if (cancelled) return;
+      void drain(applyResult);
+    }
+
+    window.addEventListener("online", tick);
+    function onVisible() {
+      if (!document.hidden) tick();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(tick, 30_000);
+
+    // Kick once on mount so anything left over from a previous session
+    // flushes as soon as we're back.
+    tick();
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", tick);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, []);
+
   // Reveal-boundary timer: flip `isLocked` derivations the moment a
   // photo's reveal_at passes. The 60s safety tick covers throttled
   // timers (background tab, OS suspension).
@@ -546,7 +601,15 @@ export default function CanvasClient() {
         );
         await cacheUpsertNote(data.note);
       } catch {
-        setNotes((prev) => prev.filter((n) => n.id !== tempId));
+        // Offline (or server hiccup). Keep the optimistic note visible
+        // and queue the create. Drain swaps tempId → real id later.
+        await enqueue({
+          tag: "note:create",
+          method: "POST",
+          path: "/api/notes",
+          body: { author: self, body, color, x, y, rotation },
+          meta: { tempId },
+        });
       }
     },
     [self],
@@ -558,6 +621,8 @@ export default function CanvasClient() {
         n.id === id ? { ...n, x, y, updated_at: new Date().toISOString() } : n,
       ),
     );
+    // Skip persistence for temp ids — the queued `note:create` carries
+    // the latest coords already (last move wins, no separate PATCH).
     if (id.startsWith("temp-")) return;
     try {
       const res = await fetch(`/api/notes/${id}`, {
@@ -565,12 +630,17 @@ export default function CanvasClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ x, y }),
       });
-      if (res.ok) {
-        const data = (await res.json()) as { note: Note };
-        await cacheUpsertNote(data.note);
-      }
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = (await res.json()) as { note: Note };
+      await cacheUpsertNote(data.note);
     } catch {
-      /* realtime UPDATE will reconcile */
+      await enqueue({
+        tag: "note:move",
+        method: "PATCH",
+        path: `/api/notes/${id}`,
+        body: { x, y },
+        meta: { noteId: id },
+      });
     }
   }, []);
 
@@ -1010,6 +1080,7 @@ export default function CanvasClient() {
       <PhotoViewer photo={viewing} onClose={() => setViewing(null)} />
 
       <ConnectionToast connected={connected} />
+      <OutboxBadge />
 
       {/* upload status */}
       {(capture.state !== "idle" || uploadFlash) && (

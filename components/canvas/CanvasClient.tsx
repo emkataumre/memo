@@ -176,6 +176,13 @@ export default function CanvasClient() {
   // Drives the reconnect toast.
   const [connected, setConnected] = useState(false);
 
+  // Trigger for the outbox auto-drain. Held in a ref so the subscribe
+  // effect can poke it when Realtime flips to SUBSCRIBED — that's the
+  // fastest "you are online" signal we have (faster + more reliable
+  // than `window.online`, which doesn't always fire from DevTools
+  // throttling toggles).
+  const drainTickRef = useRef<(() => void) | null>(null);
+
   // Authors currently connected to the presence channel. The TopBar
   // shows a subtle dot when the partner (i.e. anyone other than self)
   // is in this set.
@@ -368,7 +375,10 @@ export default function CanvasClient() {
           onSong: applySongEvent,
           onResync: resync,
           onStatus: (status) => {
-            if (!cancelled) setConnected(status === "connected");
+            if (cancelled) return;
+            const isConnected = status === "connected";
+            setConnected(isConnected);
+            if (isConnected) drainTickRef.current?.();
           },
         });
       } catch (err) {
@@ -420,12 +430,15 @@ export default function CanvasClient() {
       void drain(applyResult);
     }
 
+    drainTickRef.current = tick;
     window.addEventListener("online", tick);
     function onVisible() {
       if (!document.hidden) tick();
     }
     document.addEventListener("visibilitychange", onVisible);
-    const interval = setInterval(tick, 30_000);
+    // Safety net: short interval so a missed `online` event + a flaky
+    // Realtime reconnect still flush within seconds, not half a minute.
+    const interval = setInterval(tick, 5_000);
 
     // Kick once on mount so anything left over from a previous session
     // flushes as soon as we're back.
@@ -433,6 +446,7 @@ export default function CanvasClient() {
 
     return () => {
       cancelled = true;
+      drainTickRef.current = null;
       window.removeEventListener("online", tick);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(interval);

@@ -10,7 +10,6 @@ import {
 } from "react";
 import { usePanZoom, zoomAtPoint } from "@/lib/canvas/usePanZoom";
 import { lodFromZoom } from "@/lib/canvas/lod";
-import { SpatialIndex } from "@/lib/canvas/spatial-index";
 import { memoDay, isCurrentMemoDay, revealWindowOpen } from "@/lib/memo-day";
 import {
   cacheLoadNotes,
@@ -403,58 +402,28 @@ export default function CanvasClient() {
     return songs.find((s) => s.author === self && s.memo_day === today) ?? null;
   }, [songs, self]);
 
-  const spatialIndex = useMemo(() => {
-    const idx = new SpatialIndex<string>(1000);
-    for (const n of notes) idx.add(`note:${n.id}`, n.x, n.y);
-    for (const p of pinnedPhotos) {
-      if (p.pinned_x !== null && p.pinned_y !== null) {
-        idx.add(`photo:${p.id}`, p.pinned_x, p.pinned_y);
-      }
-    }
-    for (const s of pinnedSongs) {
-      if (s.pinned_x !== null && s.pinned_y !== null) {
-        idx.add(`song:${s.id}`, s.pinned_x, s.pinned_y);
-      }
-    }
-    return idx;
-  }, [notes, pinnedPhotos, pinnedSongs]);
-
-  // The parent transform reads `viewport` live for smooth pan/zoom, but
-  // the spatial-cull computation is deferred. React will skip the
-  // visible-set update during heavy frames and replay it once the main
-  // thread is idle. Net effect: pan/zoom paints at 60fps with cards on
-  // a slightly-stale visible set; the 20% margin absorbs the staleness.
-  const deferredViewport = useDeferredValue(viewport);
-
-  const { visibleNotes, visiblePhotos, visibleSongs } = useMemo(() => {
-    if (!vpSize)
-      return {
-        visibleNotes: notes,
-        visiblePhotos: pinnedPhotos,
-        visibleSongs: pinnedSongs,
-      };
-    const marginX = vpSize.width * 0.2;
-    const marginY = vpSize.height * 0.2;
-    const x1 = (-deferredViewport.x - marginX) / deferredViewport.zoom;
-    const y1 = (-deferredViewport.y - marginY) / deferredViewport.zoom;
-    const x2 =
-      (vpSize.width + marginX - deferredViewport.x) / deferredViewport.zoom;
-    const y2 =
-      (vpSize.height + marginY - deferredViewport.y) / deferredViewport.zoom;
-    const visibleKeys = new Set(spatialIndex.query(x1, y1, x2, y2));
-    return {
-      visibleNotes: notes.filter((n) => visibleKeys.has(`note:${n.id}`)),
-      visiblePhotos: pinnedPhotos.filter((p) =>
-        visibleKeys.has(`photo:${p.id}`),
-      ),
-      visibleSongs: pinnedSongs.filter((s) => visibleKeys.has(`song:${s.id}`)),
-    };
-  }, [notes, pinnedPhotos, pinnedSongs, spatialIndex, deferredViewport, vpSize]);
+  // At the current scale (~100 cards) the per-frame spatial cull was
+  // doing more harm than good: zooming out grows the viewport's
+  // canvas-space area ~25×, which flooded React with new card mounts
+  // every frame. Card mount/unmount churn = the popping the user saw.
+  //
+  // Instead: render every note + pinned photo + pinned song. CSS
+  // `content-visibility: auto` (already set on every card root, see §14)
+  // skips layout + paint at the browser level for cards outside the
+  // rendered viewport — same effective culling, zero React work.
+  //
+  // SpatialIndex stays in the codebase for fitAll/jumpToToday bbox math
+  // and as the scale-day plan. Reintroduce a per-frame cull when total
+  // card count climbs past ~500 (DOM node count starts dominating).
+  const visibleNotes = notes;
+  const visiblePhotos = pinnedPhotos;
+  const visibleSongs = pinnedSongs;
 
   // Tier transitions are infrequent (twice per full zoom sweep) and
-  // affect the markup of every visible card, so prefer the deferred
-  // viewport here too — keeps the tier-flip render from competing with
-  // the pan/zoom frame.
+  // affect the markup of every visible card, so defer the zoom value
+  // that drives them so the tier-flip render doesn't compete with
+  // pan/zoom frames.
+  const deferredViewport = useDeferredValue(viewport);
   const tier = lodFromZoom(deferredViewport.zoom);
 
   const todayCount = useMemo(() => {

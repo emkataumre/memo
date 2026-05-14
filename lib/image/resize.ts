@@ -1,20 +1,30 @@
 "use client";
 
 /**
- * Resize a Blob image so its longest edge is at most `maxLongEdge`.
- * Returns JPEG at the given quality. No-op (returns blob ≤ target) is fine.
+ * Resize once, then re-encode at progressively lower quality until the result
+ * fits `targetBytes`. Returns the first blob that fits, or the smallest one
+ * tried if none fit. Decoding the source bitmap is the expensive step, so we
+ * reuse it across encode passes.
  */
-export async function resizeToJpeg(
+export async function resizeToJpegBudget(
   source: Blob,
   maxLongEdge: number,
-  quality: number,
+  qualities: number[],
+  targetBytes: number,
 ): Promise<Blob> {
+  if (qualities.length === 0) throw new Error("qualities must not be empty");
   const bitmap = await createImageBitmap(source);
   try {
     const ratio = Math.min(1, maxLongEdge / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * ratio));
     const h = Math.max(1, Math.round(bitmap.height * ratio));
-    return await drawToJpeg(bitmap, w, h, quality);
+    let smallest: Blob | null = null;
+    for (const q of qualities) {
+      const blob = await drawToJpeg(bitmap, w, h, q);
+      if (blob.size <= targetBytes) return blob;
+      if (!smallest || blob.size < smallest.size) smallest = blob;
+    }
+    return smallest!;
   } finally {
     bitmap.close?.();
   }

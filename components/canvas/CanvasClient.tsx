@@ -8,12 +8,11 @@ import { memoDay, isCurrentMemoDay } from "@/lib/memo-day";
 import {
   cacheLoadNotes,
   cachePutNotes,
+  cacheReplaceNotes,
   cacheLoadPhotos,
   cacheReplacePhotos,
   cacheLoadSongs,
   cacheReplaceSongs,
-  cacheGetMeta,
-  cacheSetMeta,
 } from "@/lib/cache/indexeddb";
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
@@ -43,7 +42,9 @@ import type {
 } from "@/lib/types";
 
 const COLORS: NoteColor[] = ["lemon", "pink", "sky", "mint"];
-const POLL_INTERVAL_MS = 3000;
+const POLL_ACTIVE_MS = 3000;
+const POLL_IDLE_MS = 15000;
+const IDLE_THRESHOLD_MS = 60000;
 
 function randomColor(): NoteColor {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -51,13 +52,6 @@ function randomColor(): NoteColor {
 
 function randomRotation(): number {
   return (Math.random() - 0.5) * 10;
-}
-
-function mergeNotes(existing: Note[], incoming: Note[]): Note[] {
-  if (!incoming.length) return existing;
-  const map = new Map(existing.map((n) => [n.id, n]));
-  for (const n of incoming) map.set(n.id, n);
-  return Array.from(map.values());
 }
 
 export default function CanvasClient() {
@@ -106,9 +100,14 @@ export default function CanvasClient() {
 
   // Cold load + polling for both notes and photos
   const pollRef = useRef<(() => Promise<void>) | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function markActive() {
+      lastActivityRef.current = Date.now();
+    }
 
     async function bootstrap() {
       const [cachedNotes, cachedPhotos, cachedSongs] = await Promise.all([
@@ -125,22 +124,17 @@ export default function CanvasClient() {
 
     async function poll() {
       if (cancelled) return;
-      const since = await cacheGetMeta("notes:last_poll");
-      const url = since
-        ? `/api/state?since=${encodeURIComponent(since)}`
-        : `/api/state`;
       try {
-        const res = await fetch(url);
+        const res = await fetch("/api/state");
         if (res.ok) {
           const data = (await res.json()) as {
             notes?: Note[];
             photos?: Photo[];
             songs?: Song[];
-            serverTime?: string;
           };
-          if (data.notes && data.notes.length) {
-            setNotes((prev) => mergeNotes(prev, data.notes!));
-            await cachePutNotes(data.notes);
+          if (data.notes) {
+            setNotes(data.notes);
+            await cacheReplaceNotes(data.notes);
           }
           if (data.photos) {
             setPhotos(data.photos);
@@ -150,15 +144,14 @@ export default function CanvasClient() {
             setSongs(data.songs);
             await cacheReplaceSongs(data.songs);
           }
-          if (data.serverTime) {
-            await cacheSetMeta("notes:last_poll", data.serverTime);
-          }
         }
       } catch {
         /* network blip — retry next tick */
       }
       if (!cancelled && !document.hidden) {
-        timer = setTimeout(poll, POLL_INTERVAL_MS);
+        const idleFor = Date.now() - lastActivityRef.current;
+        const next = idleFor > IDLE_THRESHOLD_MS ? POLL_IDLE_MS : POLL_ACTIVE_MS;
+        timer = setTimeout(poll, next);
       }
     }
 
@@ -166,14 +159,29 @@ export default function CanvasClient() {
     bootstrap();
 
     function onVisibility() {
-      if (!document.hidden && !timer && !cancelled) poll();
+      if (!document.hidden && !timer && !cancelled) {
+        markActive();
+        poll();
+      }
+    }
+    function onActivity() {
+      const wasIdle = Date.now() - lastActivityRef.current > IDLE_THRESHOLD_MS;
+      markActive();
+      // Coming out of idle: poll now instead of waiting up to 15 s.
+      if (wasIdle && !timer && !cancelled && !document.hidden) poll();
     }
     document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("pointerdown", onActivity, { passive: true });
+    document.addEventListener("wheel", onActivity, { passive: true });
+    document.addEventListener("keydown", onActivity);
 
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("pointerdown", onActivity);
+      document.removeEventListener("wheel", onActivity);
+      document.removeEventListener("keydown", onActivity);
       pollRef.current = null;
     };
   }, []);

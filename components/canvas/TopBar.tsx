@@ -24,6 +24,13 @@ export default function TopBar({
   partnerPresent,
 }: Props) {
   const router = useRouter();
+
+  // Prefetch the jar bundle so tapping the icon doesn't wait on chunk
+  // download. Next.js will dedupe if the route is already in cache.
+  useEffect(() => {
+    router.prefetch("/jar");
+  }, [router]);
+
   const lockedCount = photos.filter((p) => isLocked(p)).length;
   const tonightsCount = useMemo(() => {
     // eslint-disable-next-line react-hooks/purity

@@ -100,10 +100,11 @@ export default function CanvasClient() {
 
   // Cold load + polling for both notes and photos
   const pollRef = useRef<(() => Promise<void>) | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    lastActivityRef.current = Date.now();
 
     function markActive() {
       lastActivityRef.current = Date.now();

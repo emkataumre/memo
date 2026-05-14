@@ -4,6 +4,8 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session/cookie";
 const PUBLIC_PATHS = [
   "/passphrase",
   "/api/session",
+  // Cron-triggered: authenticated by PUSH_TRIGGER_SECRET header, not cookie.
+  "/api/push/send",
   "/manifest.json",
   "/manifest.webmanifest",
   "/icon",

@@ -4,7 +4,7 @@
  * The activate handler deletes any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = "memo-v3";
+const CACHE_VERSION = "memo-v4";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -72,6 +72,72 @@ function isFlightRequest(req) {
     req.headers.get("Next-Router-Prefetch") === "1"
   );
 }
+
+// ---- Web Push ----
+//
+// `push` fires on every encrypted message the browser receives over the
+// VAPID-authenticated channel. iOS Safari (16.4+) requires the PWA to be
+// installed to home screen before push subscriptions activate; Chrome /
+// Firefox / Android work out of the box. The notification body comes
+// from /api/push/send and is plain JSON: { title, body, url, tag }.
+
+self.addEventListener("push", (event) => {
+  let payload = {
+    title: "memo",
+    body: "tap to open",
+    url: "/canvas",
+    tag: "memo-default",
+  };
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      payload = {
+        title: typeof parsed.title === "string" ? parsed.title : payload.title,
+        body: typeof parsed.body === "string" ? parsed.body : payload.body,
+        url: typeof parsed.url === "string" ? parsed.url : payload.url,
+        tag: typeof parsed.tag === "string" ? parsed.tag : payload.tag,
+      };
+    } catch {
+      /* keep defaults */
+    }
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      icon: "/icon",
+      badge: "/icon",
+      data: { url: payload.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url || "/canvas";
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of clients) {
+        // If a memo tab is already open, focus it and navigate.
+        if ("focus" in client) {
+          try {
+            await client.navigate(target);
+          } catch {
+            /* navigate not supported (cross-origin); ignore */
+          }
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(target);
+      }
+    })(),
+  );
+});
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Photo } from "@/lib/types";
 import { minutesUntilNextReveal } from "@/lib/memo-day";
 import { isLocked } from "@/lib/photos/derive";
+import PushButton from "./PushButton";
 
 interface Props {
   onEnterZen: () => void;
@@ -73,6 +74,7 @@ export default function TopBar({
           />
         ) : null}
       </div>
+      <PushButton />
       <button
         onClick={() => router.push("/jar")}
         aria-label="Open date jar"

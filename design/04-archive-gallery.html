@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>memo — the archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=JetBrains+Mono:wght@400;500;700&family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F2E8D5;
+  --paper-deep: #EADCBF;
+  --ink: #181615;
+  --ink-deep: #0E0C0B;
+  --ink-soft: #4A453E;
+  --lemon: #F4D03F;
+  --pink: #FF6FA8;
+  --sky: #6EC1FF;
+  --mint: #8FE0A8;
+  --coral: #FF5C39;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+body {
+  background-image: radial-gradient(circle, rgba(24,22,21,0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
+  min-height: 100vh;
+  padding-bottom: 120px;
+}
+
+/* ===== TOP CHROME ===== */
+.topbar {
+  position: sticky;
+  top: 0;
+  height: 44px;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--ink);
+}
+.topbar .left, .topbar .right { display: flex; align-items: center; gap: 14px; }
+.topbar .brand {
+  font-family: 'Caprasimo', serif;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  text-transform: lowercase;
+  color: var(--coral);
+  line-height: 1;
+  padding-bottom: 2px;
+}
+.topbar .crumb { opacity: 0.65; }
+.topbar .crumb::before { content: '· '; }
+.topbar .chip {
+  background: var(--coral);
+  color: var(--ink);
+  padding: 4px 10px;
+  border: 2px solid var(--paper);
+  font-size: 11px;
+}
+.topbar .chip.ghost { background: transparent; color: var(--paper); border-color: var(--paper); cursor: pointer; }
+.topbar .self {
+  border: 2px solid var(--paper);
+  padding: 4px 10px;
+  font-size: 11px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.topbar .self::before {
+  content: ''; width: 8px; height: 8px;
+  background: var(--mint); display: inline-block;
+}
+
+/* ===== HERO ===== */
+.hero {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 56px 32px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
+  align-items: end;
+}
+.hero h1 {
+  font-family: 'Caprasimo', serif;
+  font-size: 120px;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+}
+.hero h1 .accent { color: var(--coral); }
+.hero .stats {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: right;
+  border-top: 2px solid var(--ink);
+  padding-top: 8px;
+  min-width: 380px;
+}
+.hero .stats .num { color: var(--ink); font-size: 22px; font-family: 'Caprasimo', serif; letter-spacing: -0.01em; }
+.hero .stats .dot { color: var(--coral); margin: 0 6px; }
+
+/* ===== CONTROL ROW ===== */
+.controls {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 32px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.segmented {
+  display: inline-flex;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.segmented button {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--paper);
+  color: var(--ink-soft);
+  border: none;
+  padding: 11px 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.segmented button + button { border-left: 2px solid var(--ink); }
+.segmented button .count {
+  font-size: 10px;
+  background: var(--paper-deep);
+  padding: 2px 6px;
+  border: 1px solid var(--ink-soft);
+}
+.segmented button.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+.segmented button.active .count {
+  background: var(--coral);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.filter-row .filter-label {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-right: 4px;
+}
+.filter-row .filter {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 6px 11px;
+  cursor: pointer;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.filter-row .filter.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+.filter-row .filter .count {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ===== DAY SECTION ===== */
+.day {
+  max-width: 1240px;
+  margin: 32px auto 0;
+  padding: 0 32px;
+}
+.day .head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ink);
+}
+.day .head .left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.day .head h2 {
+  font-family: 'Caprasimo', serif;
+  font-size: 38px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.day .head .label {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.day .head .right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.day .head .tally {
+  display: flex;
+  gap: 8px;
+}
+.day .head .tally span {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid var(--ink);
+  padding: 3px 7px;
+  color: var(--ink);
+}
+.day .head .open-day {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 6px 12px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--coral);
+  color: var(--ink);
+}
+.day .head .open-day:active { box-shadow: 0 0 0 var(--coral); transform: translate(3px, 3px); }
+
+.day.today .head h2 { color: var(--ink); position: relative; }
+.day.today .head h2::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--coral);
+}
+.day.today .head .label { color: var(--coral); }
+
+/* ===== THUMBNAIL GRID ===== */
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 16px 14px;
+}
+.thumb {
+  background: #fff;
+  padding: 6px 6px 22px;
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  position: relative;
+  cursor: pointer;
+}
+.thumb:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+.thumb.r1 { transform: rotate(-2deg); }
+.thumb.r2 { transform: rotate(2deg); }
+.thumb.r3 { transform: rotate(-1deg); }
+.thumb.r4 { transform: rotate(3deg); }
+.thumb.r5 { transform: rotate(-3deg); }
+.thumb .img {
+  width: 100%;
+  aspect-ratio: 1;
+}
+.thumb .img.warm   { background: linear-gradient(135deg, var(--coral), var(--lemon)); }
+.thumb .img.cool   { background: linear-gradient(135deg, #2E1A47, var(--sky) 60%, var(--mint)); }
+.thumb .img.earth  { background: linear-gradient(135deg, #8B6B3B, var(--lemon) 70%); }
+.thumb .img.dusk   { background: linear-gradient(135deg, #2E1A47, var(--pink) 70%); }
+.thumb .img.meadow { background: linear-gradient(135deg, var(--mint), var(--lemon) 70%, var(--coral)); }
+.thumb .img.ocean  { background: linear-gradient(135deg, #0E2A47, var(--sky) 80%); }
+.thumb .img.glow   { background: linear-gradient(135deg, var(--pink), var(--coral) 60%, var(--lemon)); }
+.thumb .img.night  { background: linear-gradient(135deg, var(--ink-deep), #4A2358 50%, var(--pink)); }
+.thumb .img.forest { background: linear-gradient(135deg, #14402A, var(--mint) 80%); }
+.thumb .img.rose   { background: linear-gradient(135deg, #4A1A2A, var(--pink) 90%); }
+.thumb .stamp {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 6px;
+}
+.thumb .stamp .author { color: var(--ink); }
+
+/* ===== TIMELINE SIDE RAIL ===== */
+.timeline-rail {
+  position: fixed;
+  top: 110px;
+  bottom: 30px;
+  right: 14px;
+  width: 6px;
+  background: var(--paper-deep);
+  border: 1px solid var(--ink);
+  z-index: 50;
+}
+.timeline-rail .tick {
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  height: 2px;
+  background: var(--ink);
+}
+.timeline-rail .tick.today {
+  background: var(--coral);
+  height: 4px;
+  left: -14px;
+  right: -14px;
+}
+.timeline-rail .label {
+  position: absolute;
+  right: 16px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.timeline-rail .label.today { color: var(--coral); }
+
+/* ===== BACK PILL ===== */
+.back-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 10px 14px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink);
+  z-index: 80;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- TOP CHROME -->
+<div class="topbar">
+  <div class="left">
+    <span class="brand">memo</span>
+    <span class="crumb">ARCHIVE / PHOTOS</span>
+  </div>
+  <div class="right">
+    <span class="chip">39 MEMO-DAYS</span>
+    <span class="chip ghost">canvas</span>
+    <span class="self">you · emo</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>the archive<span class="accent">.</span></h1>
+  <div class="stats">
+    <span class="num">247</span> photos
+    <span class="dot">·</span>
+    <span class="num">64</span> songs
+    <span class="dot">·</span>
+    <span class="num">39</span> days
+    <br>
+    since may 1 · 2026
+  </div>
+</div>
+
+<!-- CONTROL ROW -->
+<div class="controls">
+  <div class="segmented">
+    <button class="active">PHOTOS <span class="count">247</span></button>
+    <button>SONGS <span class="count">64</span></button>
+  </div>
+  <div class="filter-row">
+    <span class="filter-label">SHOW</span>
+    <button class="filter active">ALL <span class="count">247</span></button>
+    <button class="filter">HER <span class="count">156</span></button>
+    <button class="filter">EMO <span class="count">91</span></button>
+  </div>
+</div>
+
+<!-- TODAY · MAY 13 -->
+<div class="day today">
+  <div class="head">
+    <div class="left">
+      <h2>may 13</h2>
+      <span class="label">TODAY · FRI · MEMO-DAY 0</span>
+    </div>
+    <div class="right">
+      <div class="tally">
+        <span>HER · 7</span>
+        <span>EMO · 4</span>
+      </div>
+      <button class="open-day">VIEW DAY →</button>
+    </div>
+  </div>
+  <div class="thumbs">
+    <div class="thumb r1"><div class="img warm"></div><div class="stamp"><span class="author">HER</span>07:42</div></div>
+    <div class="thumb r2"><div class="img cool"></div><div class="stamp"><span class="author">EMO</span>09:18</div></div>
+    <div class="thumb r3"><div class="img meadow"></div><div class="stamp"><span class="author">HER</span>11:03</div></div>
+    <div class="thumb r4"><div class="img ocean"></div><div class="stamp"><span class="author">HER</span>12:48</div></div>
+    <div class="thumb r5"><div class="img earth"></div><div class="stamp"><span class="author">EMO</span>14:22</div></div>
+    <div class="thumb r1"><div class="img glow"></div><div class="stamp"><span class="author">HER</span>15:51</div></div>
+    <div class="thumb r2"><div class="img dusk"></div><div class="stamp"><span class="author">EMO</span>17:30</div></div>
+    <div class="thumb r3"><div class="img night"></div><div class="stamp"><span class="author">HER</span>19:42</div></div>
+    <div class="thumb r4"><div class="img rose"></div><div class="stamp"><span class="author">HER</span>20:14</div></div>
+    <div class="thumb r5"><div class="img forest"></div><div class="stamp"><span class="author">EMO</span>20:39</div></div>
+    <div class="thumb r1"><div class="img warm"></div><div class="stamp"><span class="author">HER</span>20:51</div></div>
+  </div>
+</div>
+
+<!-- YESTERDAY · MAY 12 -->
+<div class="day past-week">
+  <div class="head">
+    <div class="left">
+      <h2>may 12</h2>
+      <span class="label">YESTERDAY · THU · MEMO-DAY −1</span>
+    </div>
+    <div class="right">
+      <div class="tally"><span>HER · 5</span><span>EMO · 2</span></div>
+      <button class="open-day">VIEW DAY →</button>
+    </div>
+  </div>
+  <div class="thumbs">
+    <div class="thumb r1"><div class="img cool"></div><div class="stamp"><span class="author">HER</span>08:12</div></div>
+    <div class="thumb r2"><div class="img ocean"></div><div class="stamp"><span class="author">HER</span>10:34</div></div>
+    <div class="thumb r3"><div class="img meadow"></div><div class="stamp"><span class="author">EMO</span>12:55</div></div>
+    <div class="thumb r4"><div class="img glow"></div><div class="stamp"><span class="author">HER</span>14:01</div></div>
+    <div class="thumb r5"><div class="img dusk"></div><div class="stamp"><span class="author">HER</span>17:28</div></div>
+    <div class="thumb r1"><div class="img rose"></div><div class="stamp"><span class="author">EMO</span>18:11</div></div>
+    <div class="thumb r2"><div class="img night"></div><div class="stamp"><span class="author">HER</span>20:08</div></div>
+  </div>
+</div>
+
+<!-- MAY 11 -->
+<div class="day past-week">
+  <div class="head">
+    <div class="left">
+      <h2>may 11</h2>
+      <span class="label">WED · MEMO-DAY −2</span>
+    </div>
+    <div class="right">
+      <div class="tally"><span>HER · 3</span><span>EMO · 1</span></div>
+      <button class="open-day">VIEW DAY →</button>
+    </div>
+  </div>
+  <div class="thumbs">
+    <div class="thumb r3"><div class="img warm"></div><div class="stamp"><span class="author">HER</span>09:22</div></div>
+    <div class="thumb r4"><div class="img forest"></div><div class="stamp"><span class="author">HER</span>13:44</div></div>
+    <div class="thumb r5"><div class="img earth"></div><div class="stamp"><span class="author">EMO</span>16:30</div></div>
+    <div class="thumb r1"><div class="img dusk"></div><div class="stamp"><span class="author">HER</span>19:55</div></div>
+  </div>
+</div>
+
+<!-- MAY 10 -->
+<div class="day past-week">
+  <div class="head">
+    <div class="left">
+      <h2>may 10</h2>
+      <span class="label">TUE · MEMO-DAY −3</span>
+    </div>
+    <div class="right">
+      <div class="tally"><span>HER · 6</span><span>EMO · 3</span></div>
+      <button class="open-day">VIEW DAY →</button>
+    </div>
+  </div>
+  <div class="thumbs">
+    <div class="thumb r2"><div class="img meadow"></div><div class="stamp"><span class="author">HER</span>07:11</div></div>
+    <div class="thumb r3"><div class="img cool"></div><div class="stamp"><span class="author">EMO</span>10:02</div></div>
+    <div class="thumb r4"><div class="img ocean"></div><div class="stamp"><span class="author">HER</span>11:48</div></div>
+    <div class="thumb r1"><div class="img glow"></div><div class="stamp"><span class="author">HER</span>13:30</div></div>
+    <div class="thumb r5"><div class="img earth"></div><div class="stamp"><span class="author">EMO</span>15:22</div></div>
+    <div class="thumb r2"><div class="img rose"></div><div class="stamp"><span class="author">HER</span>17:14</div></div>
+    <div class="thumb r3"><div class="img night"></div><div class="stamp"><span class="author">EMO</span>19:08</div></div>
+    <div class="thumb r4"><div class="img dusk"></div><div class="stamp"><span class="author">HER</span>20:22</div></div>
+    <div class="thumb r5"><div class="img warm"></div><div class="stamp"><span class="author">HER</span>20:44</div></div>
+  </div>
+</div>
+
+<!-- MAY 6 (older, more faded) -->
+<div class="day older">
+  <div class="head">
+    <div class="left">
+      <h2>may 6</h2>
+      <span class="label">FRI · MEMO-DAY −7</span>
+    </div>
+    <div class="right">
+      <div class="tally"><span>HER · 4</span><span>EMO · 1</span></div>
+      <button class="open-day">VIEW DAY →</button>
+    </div>
+  </div>
+  <div class="thumbs">
+    <div class="thumb r1"><div class="img night"></div><div class="stamp"><span class="author">HER</span>09:30</div></div>
+    <div class="thumb r2"><div class="img forest"></div><div class="stamp"><span class="author">HER</span>12:11</div></div>
+    <div class="thumb r3"><div class="img earth"></div><div class="stamp"><span class="author">EMO</span>14:45</div></div>
+    <div class="thumb r4"><div class="img cool"></div><div class="stamp"><span class="author">HER</span>16:22</div></div>
+    <div class="thumb r5"><div class="img rose"></div><div class="stamp"><span class="author">HER</span>19:05</div></div>
+  </div>
+</div>
+
+<!-- TIMELINE RAIL -->
+<div class="timeline-rail">
+  <div class="tick today" style="top: 2%;"></div>
+  <div class="label today" style="top: 0;">MAY 13</div>
+  <div class="tick" style="top: 14%;"></div>
+  <div class="label" style="top: 12%;">MAY 12</div>
+  <div class="tick" style="top: 28%;"></div>
+  <div class="label" style="top: 26%;">MAY 11</div>
+  <div class="tick" style="top: 44%;"></div>
+  <div class="label" style="top: 42%;">MAY 10</div>
+  <div class="tick" style="top: 64%;"></div>
+  <div class="label" style="top: 62%;">MAY 6</div>
+  <div class="tick" style="top: 92%;"></div>
+  <div class="label" style="top: 90%;">MAY 1</div>
+</div>
+
+<!-- BACK PILL -->
+<button class="back-pill">← CANVAS</button>
+
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>memo — today's roll (locked)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=JetBrains+Mono:wght@400;500;700&family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F2E8D5;
+  --paper-deep: #EADCBF;
+  --ink: #181615;
+  --ink-deep: #0E0C0B;
+  --ink-soft: #4A453E;
+  --lemon: #F4D03F;
+  --pink: #FF6FA8;
+  --sky: #6EC1FF;
+  --mint: #8FE0A8;
+  --coral: #FF5C39;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+body {
+  background-image: radial-gradient(circle, rgba(24,22,21,0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
+  min-height: 100vh;
+  padding-bottom: 120px;
+}
+
+/* ===== TOP CHROME (reused from canvas hero) ===== */
+.topbar {
+  position: sticky;
+  top: 0;
+  height: 44px;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--ink);
+}
+.topbar .left, .topbar .right { display: flex; align-items: center; gap: 14px; }
+.topbar .brand {
+  font-family: 'Caprasimo', serif;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  text-transform: lowercase;
+  color: var(--coral);
+  line-height: 1;
+  padding-bottom: 2px;
+}
+.topbar .crumb {
+  opacity: 0.65;
+}
+.topbar .crumb::before { content: '· '; }
+.topbar .chip {
+  background: var(--coral);
+  color: var(--ink);
+  padding: 4px 10px;
+  border: 2px solid var(--paper);
+  font-size: 11px;
+}
+.topbar .chip.ghost { background: transparent; color: var(--paper); border-color: var(--paper); cursor: pointer; }
+.topbar .self {
+  border: 2px solid var(--paper);
+  padding: 4px 10px;
+  font-size: 11px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.topbar .self::before {
+  content: '';
+  width: 8px; height: 8px;
+  background: var(--mint);
+  display: inline-block;
+}
+
+/* ===== PAGE HEAD ===== */
+.head {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 56px 32px 30px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 60px;
+  align-items: end;
+}
+.head h1 {
+  font-family: 'Caprasimo', serif;
+  font-size: 96px;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+}
+.head h1 .accent { color: var(--coral); }
+.head .meta {
+  margin-top: 18px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.head .author-chips {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.head .author-chip {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 2px solid var(--ink);
+  padding: 5px 10px;
+  background: var(--paper-deep);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.head .author-chip .count {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+/* countdown */
+.countdown {
+  text-align: right;
+  border: 3px solid var(--ink);
+  background: var(--paper-deep);
+  padding: 14px 22px 16px;
+  box-shadow: 6px 6px 0 var(--coral);
+  min-width: 280px;
+}
+.countdown .label {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.countdown .clock {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 56px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.countdown .clock .sep { color: var(--coral); margin: 0 2px; }
+.countdown .foot {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+/* ===== GRID OF LOCKED POLAROIDS ===== */
+.roll {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 36px 28px;
+}
+.locked {
+  background: #fff;
+  padding: 14px 14px 50px;
+  border: 2px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
+  position: relative;
+}
+.locked.r1 { transform: rotate(-3deg); }
+.locked.r2 { transform: rotate(4deg); }
+.locked.r3 { transform: rotate(-2deg); }
+.locked.r4 { transform: rotate(5deg); }
+.locked.r5 { transform: rotate(-5deg); }
+.locked.r6 { transform: rotate(3deg); }
+.locked.r7 { transform: rotate(-4deg); }
+
+.locked .film {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--ink-deep);
+  background-image:
+    radial-gradient(circle at 50% 40%, rgba(255,92,57,0.10), transparent 60%),
+    radial-gradient(circle, rgba(242,232,213,0.06) 1px, transparent 1.5px);
+  background-size: auto, 7px 7px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.locked .film::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent 0 8px, rgba(255,92,57,0.05) 8px 9px);
+}
+.locked .film svg {
+  width: 42px; height: 42px;
+  color: var(--coral);
+  z-index: 2;
+}
+.locked .film .time-stamp {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--coral);
+  background: var(--ink-deep);
+  padding: 2px 5px;
+  border: 1px solid var(--coral);
+  z-index: 2;
+}
+.locked .caption {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-soft);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.locked .caption .author { color: var(--ink); }
+.locked .caption .state {
+  color: var(--coral);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.locked .caption .state::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: var(--coral);
+  display: inline-block;
+}
+
+/* ===== CAPTURE FAB (bottom right) ===== */
+.capture-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--coral);
+  border: 2px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 80;
+  transition: transform 0.07s, box-shadow 0.07s;
+}
+.capture-fab:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
+.capture-fab svg { width: 36px; height: 36px; color: var(--ink); }
+
+/* back to canvas pill (bottom left) */
+.back-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 10px 14px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink);
+  z-index: 80;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== ADD-CAPTION MODAL (overlay) ===== */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(24,22,21,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  width: 460px;
+  box-shadow: 12px 12px 0 var(--ink);
+  max-width: 100%;
+}
+.modal .titlebar {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 12px;
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.modal .titlebar .left { display: flex; align-items: center; gap: 8px; }
+.modal .titlebar .dot { width: 8px; height: 8px; background: var(--coral); display: inline-block; }
+.modal .titlebar .x {
+  width: 16px; height: 16px;
+  border: 2px solid var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+}
+.modal .body {
+  padding: 24px 22px 22px;
+  background-image: radial-gradient(circle, rgba(24,22,21,0.05) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+.modal h3 {
+  font-family: 'Caprasimo', serif;
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.modal .sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+.modal .sub .coral { color: var(--coral); }
+.modal label {
+  display: block;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.modal textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  resize: none;
+  height: 70px;
+  margin-bottom: 18px;
+}
+.modal .actions { display: flex; justify-content: space-between; gap: 12px; }
+.btn {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 11px 18px;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+.btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+.btn.primary { background: var(--coral); }
+.btn.ghost { background: transparent; box-shadow: none; }
+.btn.ghost:active { transform: none; }
+
+/* film-strip flourish next to modal */
+.modal-strip {
+  position: absolute;
+  top: -28px; right: -32px;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--coral);
+  background: var(--ink);
+  padding: 4px 10px;
+  transform: rotate(8deg);
+  border: 2px solid var(--coral);
+}
+</style>
+</head>
+<body>
+
+<!-- TOP CHROME -->
+<div class="topbar">
+  <div class="left">
+    <span class="brand">memo</span>
+    <span class="crumb">CAMERA / TODAY'S ROLL</span>
+  </div>
+  <div class="right">
+    <span class="chip">✦ 11 PENDING</span>
+    <span class="chip ghost">canvas</span>
+    <span class="self">you · emo</span>
+  </div>
+</div>
+
+<!-- HEAD -->
+<div class="head">
+  <div>
+    <h1>today's <span class="accent">roll.</span></h1>
+    <div class="meta">FRI · MAY 13 · 2026 · LOCKED UNTIL TONIGHT</div>
+    <div class="author-chips">
+      <span class="author-chip">EMO <span class="count">4</span></span>
+      <span class="author-chip">HER <span class="count">7</span></span>
+    </div>
+  </div>
+  <div class="countdown">
+    <div class="label">REVEALS IN</div>
+    <div class="clock">03<span class="sep">:</span>22<span class="sep">:</span>41</div>
+    <div class="foot">AT 21:00 · EUROPE/COPENHAGEN</div>
+  </div>
+</div>
+
+<!-- GRID -->
+<div class="roll">
+  <div class="locked r1">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">07:42</div>
+    </div>
+    <div class="caption"><span class="author">HER</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r2">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">09:18</div>
+    </div>
+    <div class="caption"><span class="author">EMO</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r3">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">11:03</div>
+    </div>
+    <div class="caption"><span class="author">HER</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r4">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">12:48</div>
+    </div>
+    <div class="caption"><span class="author">HER</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r5">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">14:22</div>
+    </div>
+    <div class="caption"><span class="author">EMO</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r6">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">15:51</div>
+    </div>
+    <div class="caption"><span class="author">HER</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r7">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">17:30</div>
+    </div>
+    <div class="caption"><span class="author">EMO</span><span class="state">LOCKED</span></div>
+  </div>
+  <div class="locked r1">
+    <div class="film">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11 V 7 a 4 4 0 0 1 8 0 V 11"/></svg>
+      <div class="time-stamp">17:38</div>
+    </div>
+    <div class="caption"><span class="author">HER</span><span class="state">LOCKED</span></div>
+  </div>
+</div>
+
+<!-- BACK TO CANVAS -->
+<button class="back-pill">← CANVAS</button>
+
+<!-- CAPTURE FAB -->
+<button class="capture-fab" title="take photo">
+  <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M5 11 L10 11 L13 7 L23 7 L26 11 L31 11 L31 30 L5 30 Z"/>
+    <circle cx="18" cy="20" r="6.5"/>
+  </svg>
+</button>
+
+<!-- ADD-CAPTION MODAL -->
+<div class="modal-scrim">
+  <div style="position:relative">
+    <div class="modal-strip">JUST CAPTURED · 19:42</div>
+    <div class="modal">
+      <div class="titlebar">
+        <span class="left"><span class="dot"></span>PHOTO ADDED · 19:42</span>
+        <span class="x">✕</span>
+      </div>
+      <div class="body">
+        <h3>locked in.</h3>
+        <p class="sub">added to today's roll. <span class="coral">reveals in 1h 18m.</span></p>
+        <label>add a note? (optional)</label>
+        <textarea placeholder="something you don't want to forget about this moment…"></textarea>
+        <div class="actions">
+          <button class="btn ghost">skip</button>
+          <button class="btn primary">post →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# memo
 
-## Getting Started
+Private shared PWA for two people. Sticky-note canvas + disposable camera + song-of-the-day.
 
-First, run the development server:
+See [tech-spec.md](./tech-spec.md) for the architecture, data model, and build plan.
+Design artefacts (mood boards) live in [`design/`](./design/).
+
+## Stack
+
+- Next.js 16 + React 19 + App Router + TypeScript strict
+- Tailwind CSS v4
+- Supabase (Postgres + Storage), accessed server-only
+- Vercel for hosting
+- PWA, mobile-first (≥44×44 touch targets, no hover affordances)
+
+## Local development
 
 ```bash
+# 1. Install deps (already done if you ran create-next-app)
+npm install
+
+# 2. Set environment variables
+cp .env.example .env.local
+# then edit .env.local with real values
+
+# 3. Run dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. You'll be redirected to `/passphrase`. Enter the value of `MEMO_PASSPHRASE` from `.env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All server-only (no `NEXT_PUBLIC_*`). See [tech-spec.md §12](./tech-spec.md).
 
-## Learn More
+| Var | Purpose |
+|---|---|
+| `MEMO_PASSPHRASE` | Shared passphrase that gates the app. |
+| `MEMO_SESSION_SECRET` | HMAC key for signing the session cookie. ≥32 random chars. |
+| `SUPABASE_URL` | Supabase project URL. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key. Server-only. Never commit. |
+| `SPOTIFY_CLIENT_ID` | Spotify Developer app client id. |
+| `SPOTIFY_CLIENT_SECRET` | Spotify Developer app client secret. |
 
-To learn more about Next.js, take a look at the following resources:
+## Supabase setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Create a Supabase project.
+2. Run `supabase/migrations/0001_init.sql` against the database (via Supabase Studio SQL editor or `psql`).
+3. Create a private Storage bucket named `photos`.
+4. Copy `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` into `.env.local`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project layout
 
-## Deploy on Vercel
+```
+app/                # Next.js App Router routes
+  passphrase/       # gate
+  canvas/           # main surface
+  api/session/      # cookie set/clear
+components/         # React components
+lib/
+  session/cookie.ts # HMAC sign/verify
+  supabase/server.ts# service-role client
+  memo-day.ts       # client mirror of Postgres memo_day()
+supabase/
+  migrations/       # schema + triggers
+design/             # HTML mood boards
+proxy.ts            # auth gate middleware (Next 16 calls it "proxy")
+tech-spec.md        # spec
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Current status
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Phase 1 — Foundation. Passphrase gate, schema migration, stub canvas with one hardcoded note. See [tech-spec.md §13](./tech-spec.md) for the phase plan.

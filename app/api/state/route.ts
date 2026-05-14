@@ -37,26 +37,18 @@ function thumbPathFor(fullPath: string): string {
 }
 
 /**
- * Delta polling endpoint. Returns:
- *  - notes whose `updated_at > since`
- *  - all photos (small volume; locked = no urls, revealed = signed urls)
- *
- * Photos query is intentionally unfiltered for MVP — low row count.
+ * Polling endpoint. Returns full state every call so the client mirrors the
+ * server exactly — including deletions. Row counts stay low for two users,
+ * so the bandwidth cost is negligible compared to the complexity of a
+ * tombstone-based delta protocol.
  */
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const since = url.searchParams.get("since");
-
+export async function GET() {
   const supabase = getSupabaseServer();
 
-  let notesQuery = supabase
+  const { data: notes, error: notesErr } = await supabase
     .from("notes")
     .select("*")
     .order("updated_at", { ascending: true });
-  if (since && !Number.isNaN(Date.parse(since))) {
-    notesQuery = notesQuery.gt("updated_at", since);
-  }
-  const { data: notes, error: notesErr } = await notesQuery;
   if (notesErr)
     return NextResponse.json({ error: notesErr.message }, { status: 500 });
 

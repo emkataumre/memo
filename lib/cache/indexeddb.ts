@@ -70,6 +70,18 @@ export async function cachePutNotes(notes: Note[]): Promise<void> {
   }
 }
 
+export async function cacheReplaceNotes(notes: Note[]): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction("notes", "readwrite");
+    await tx.store.clear();
+    await Promise.all(notes.map((n) => tx.store.put(n)));
+    await tx.done;
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function cacheLoadPhotos(): Promise<Photo[]> {
   try {
     const db = await getDB();
@@ -128,20 +140,3 @@ export async function cacheReplaceSongs(songs: Song[]): Promise<void> {
   }
 }
 
-export async function cacheGetMeta(key: string): Promise<string | undefined> {
-  try {
-    const db = await getDB();
-    return await db.get("meta", key);
-  } catch {
-    return undefined;
-  }
-}
-
-export async function cacheSetMeta(key: string, value: string): Promise<void> {
-  try {
-    const db = await getDB();
-    await db.put("meta", value, key);
-  } catch {
-    /* best-effort */
-  }
-}

@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import type { Note, NoteColor, NoteVariant } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
+import { useZoomRef } from "@/lib/canvas/zoom-context";
 
 const COLOR_BG: Record<NoteColor, string> = {
   lemon: "bg-lemon",
@@ -41,7 +42,6 @@ interface Props {
   isOwn: boolean;
   isToday: boolean;
   tier: LodTier;
-  zoom: number;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
   interactive: boolean;
@@ -55,12 +55,12 @@ function StickyNote({
   isOwn,
   isToday,
   tier,
-  zoom,
   onMove,
   onResize,
   interactive,
   onDragStateChange,
 }: Props) {
+  const zoomRef = useZoomRef();
   const elRef = useRef<HTMLDivElement | null>(null);
   const dragStart = useRef<{
     startX: number;
@@ -161,9 +161,10 @@ function StickyNote({
 
     if (phase !== "dragging") return;
     e.stopPropagation();
+    const z = zoomRef.current || 1;
     setPos({
-      x: dragStart.current.origX + dx / zoom,
-      y: dragStart.current.origY + dy / zoom,
+      x: dragStart.current.origX + dx / z,
+      y: dragStart.current.origY + dy / z,
     });
   }
 
@@ -209,8 +210,9 @@ function StickyNote({
     const rs = resizeStart.current;
     if (!rs) return;
     e.stopPropagation();
-    const dx = (e.clientX - rs.startX) / zoom;
-    const dy = (e.clientY - rs.startY) / zoom;
+    const z = zoomRef.current || 1;
+    const dx = (e.clientX - rs.startX) / z;
+    const dy = (e.clientY - rs.startY) / z;
     const nextW = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, rs.origW + dx));
     const nextH = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, rs.origH + dy));
     setSize({ w: nextW, h: nextH });

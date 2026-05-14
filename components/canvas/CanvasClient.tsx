@@ -19,6 +19,7 @@ import { isLocked } from "@/lib/photos/derive";
 import { signCache } from "@/lib/photos/sign-cache";
 import { notesStore, photosStore, songsStore } from "@/lib/canvas/stores";
 import { useNotes, usePhotos, useSongs } from "@/lib/canvas/use-canvas-stores";
+import { ZoomContext, type ZoomRef } from "@/lib/canvas/zoom-context";
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
 import SelfPicker from "@/components/SelfPicker";
@@ -96,6 +97,16 @@ export default function CanvasClient() {
     height: number;
   } | null>(null);
   const { viewport, animateTo } = usePanZoom(viewportRef, noteDragRef);
+
+  // Live zoom mirror exposed to card subtrees via context. Card pointer
+  // handlers read `.current` for drag math — taking `zoom` as a prop
+  // would invalidate React.memo on every visible card every RAF frame.
+  // The ref is updated in a commit-phase effect; one-frame lag during
+  // simultaneous drag + zoom is imperceptible.
+  const zoomRef = useRef<number>(viewport.zoom) as ZoomRef;
+  useEffect(() => {
+    zoomRef.current = viewport.zoom;
+  }, [viewport.zoom]);
 
   // Track viewport size for culling math
   useEffect(() => {
@@ -930,7 +941,7 @@ export default function CanvasClient() {
   }, [resyncCount, vpSize, jumpToToday]);
 
   return (
-    <>
+    <ZoomContext.Provider value={zoomRef}>
       <SelfPicker />
       {!zen && (
         <TopBar
@@ -956,8 +967,12 @@ export default function CanvasClient() {
             position: "absolute",
             top: 0,
             left: 0,
-            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+            // translate3d forces this subtree onto its own GPU
+            // compositor layer so pan/zoom is a matrix update rather
+            // than a per-frame re-paint of every child card.
+            transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.zoom})`,
             transformOrigin: "0 0",
+            willChange: "transform",
           }}
         >
           {visibleNotes.map((note) => (
@@ -967,7 +982,6 @@ export default function CanvasClient() {
               isOwn={self === note.author}
               isToday={isCurrentMemoDay(new Date(note.created_at))}
               tier={tier}
-              zoom={viewport.zoom}
               onMove={moveNote}
               onResize={resizeNote}
               interactive={!zen}
@@ -980,7 +994,6 @@ export default function CanvasClient() {
               photo={photo}
               isToday={isCurrentMemoDay(new Date(photo.taken_at))}
               tier={tier}
-              zoom={viewport.zoom}
               onMove={movePhoto}
               onTap={setViewing}
               interactive={!zen}
@@ -993,7 +1006,6 @@ export default function CanvasClient() {
               song={song}
               isToday={song.memo_day === memoDay()}
               tier={tier}
-              zoom={viewport.zoom}
               onMove={moveSong}
               interactive={!zen}
               onDragStateChange={setCardDrag}
@@ -1109,6 +1121,6 @@ export default function CanvasClient() {
           onClose={() => setArchiveOpen(false)}
         />
       )}
-    </>
+    </ZoomContext.Provider>
   );
 }

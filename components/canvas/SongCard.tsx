@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import type { Song } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
+import { useZoomRef } from "@/lib/canvas/zoom-context";
 
 const HOLD_MS = 600;
 const MOVE_CANCEL = 6;
@@ -11,7 +12,6 @@ interface Props {
   song: Song;
   isToday: boolean;
   tier: LodTier;
-  zoom: number;
   onMove: (id: string, x: number, y: number) => void;
   interactive: boolean;
   onDragStateChange: (active: boolean) => void;
@@ -23,11 +23,11 @@ function SongCard({
   song,
   isToday,
   tier,
-  zoom,
   onMove,
   interactive,
   onDragStateChange,
 }: Props) {
+  const zoomRef = useZoomRef();
   const elRef = useRef<HTMLDivElement | null>(null);
   const dragStart = useRef<{
     startX: number;
@@ -106,9 +106,10 @@ function SongCard({
 
     if (phase !== "dragging") return;
     e.stopPropagation();
+    const z = zoomRef.current || 1;
     setPos({
-      x: dragStart.current.origX + dx / zoom,
-      y: dragStart.current.origY + dy / zoom,
+      x: dragStart.current.origX + dx / z,
+      y: dragStart.current.origY + dy / z,
     });
   }
 

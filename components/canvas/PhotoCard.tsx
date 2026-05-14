@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { Photo } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
 import { usePhotoUrl } from "@/lib/photos/usePhotoUrls";
+import { useZoomRef } from "@/lib/canvas/zoom-context";
 
 const HOLD_MS = 600;
 const MOVE_CANCEL = 6;
@@ -12,7 +13,6 @@ interface Props {
   photo: Photo;
   isToday: boolean;
   tier: LodTier;
-  zoom: number;
   onMove: (id: string, x: number, y: number) => void;
   onTap: (photo: Photo) => void;
   interactive: boolean;
@@ -25,12 +25,12 @@ function PhotoCard({
   photo,
   isToday,
   tier,
-  zoom,
   onMove,
   onTap,
   interactive,
   onDragStateChange,
 }: Props) {
+  const zoomRef = useZoomRef();
   const elRef = useRef<HTMLDivElement | null>(null);
   const dragStart = useRef<{
     startX: number;
@@ -111,9 +111,10 @@ function PhotoCard({
 
     if (phase !== "dragging") return;
     e.stopPropagation();
+    const z = zoomRef.current || 1;
     setPos({
-      x: dragStart.current.origX + dx / zoom,
-      y: dragStart.current.origY + dy / zoom,
+      x: dragStart.current.origX + dx / z,
+      y: dragStart.current.origY + dy / z,
     });
   }
 

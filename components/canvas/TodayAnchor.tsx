@@ -32,7 +32,7 @@ export default function TodayAnchor({ count, onJump }: Props) {
 
   return (
     <button
-      onClick={onJump}
+      onClick={() => onJump()}
       aria-label="Jump to today"
       className="fixed top-[60px] left-4 z-40 font-pixel text-xs tracking-widest uppercase bg-paper border-2 border-coral px-3 py-1.5 flex items-center gap-2.5 shadow-[3px_3px_0_var(--coral)] cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-none select-none"
     >

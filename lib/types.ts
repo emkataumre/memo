@@ -52,3 +52,19 @@ export interface SpotifyTrack {
   artist: string;
   albumArt: string | null;
 }
+
+export interface DateIdea {
+  id: string;
+  author: Author;
+  body: string;
+  status: "in_jar" | "taken";
+  taken_at: string | null;
+  taken_note_id: string | null;
+  created_at: string;
+}
+
+// Public shape of the jar — counts only, idea bodies never sent unless drawn.
+export interface JarState {
+  count: number;
+  byAuthor: Record<Author, number>;
+}

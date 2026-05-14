@@ -81,6 +81,13 @@ export function usePanZoom(
 
   const animateTo = useCallback(
     (target: Viewport, durationMs = 400) => {
+      // Instant snap. RAF interpolation with durationMs=0 hits 0/0 = NaN
+      // on the first frame and poisons the viewport for every later
+      // animation, so the no-animation path is special-cased.
+      if (durationMs <= 0) {
+        setViewport(target);
+        return;
+      }
       const start = performance.now();
       const from = viewport;
       function step(now: number) {

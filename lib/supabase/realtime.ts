@@ -19,12 +19,23 @@ export interface CanvasHandlers {
   onResync: () => void | Promise<void>;
 }
 
+const TOPIC = "memo_canvas";
+
 export async function subscribeCanvas(
   handlers: CanvasHandlers,
 ): Promise<() => void> {
   const sb = await getSupabaseBrowser();
+
+  // Defensive: drop any stale instance of this channel before binding
+  // listeners. Matches the StrictMode/HMR teardown race in presence.ts.
+  for (const c of sb.getChannels()) {
+    if (c.topic === `realtime:${TOPIC}`) {
+      await sb.removeChannel(c);
+    }
+  }
+
   const channel: RealtimeChannel = sb
-    .channel("memo_canvas")
+    .channel(TOPIC)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "notes" },

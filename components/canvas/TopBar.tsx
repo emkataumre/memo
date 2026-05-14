@@ -41,17 +41,24 @@ export default function TopBar({
     return () => clearInterval(id);
   }, []);
 
-  const lockedCount = photos.filter((p) => isLocked(p)).length;
+  const lockedCount = photos.filter(
+    (p) => p.date_idea_id === null && isLocked(p),
+  ).length;
   const tonightsCount = useMemo(() => {
     const now = new Date();
-    return photos.filter((p) => revealWindowOpen(p, now)).length;
+    return photos.filter(
+      (p) => p.date_idea_id === null && revealWindowOpen(p, now),
+    ).length;
     // minuteTick: forces recompute at midnight rollover.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, minuteTick]);
   const tonightsUnpinned = useMemo(() => {
     const now = new Date();
     return photos.filter(
-      (p) => revealWindowOpen(p, now) && p.pinned_at === null,
+      (p) =>
+        p.date_idea_id === null &&
+        revealWindowOpen(p, now) &&
+        p.pinned_at === null,
     ).length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, minuteTick]);

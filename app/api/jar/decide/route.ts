@@ -2,21 +2,16 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 // POST /api/jar/decide — body { id, take }.
-//   take === false → idea stays in the jar (no DB change). Returns ok.
-//   take === true  → mark idea taken, atomically create a sticky note
-//     with the idea body, link the two via taken_note_id, return note.
+//   take === false → idea stays in the jar (no DB change).
+//   take === true  → idea flips to `pending`. Rejects with 409 if another
+//                    pending date already exists (one-at-a-time rule).
 //
-// The note's coords are randomised near the canvas origin so the user
-// can find it after navigating back to the canvas. Author of the note
-// carries over from the idea — the person who added the idea owns the
-// resulting memory record.
-const COORD_SPREAD = 300;
-const ROTATION_SPREAD = 6;
+// The old behaviour (auto-create a sticky note on the canvas) was retired
+// in the dates rework — see migration 0007. Completion happens later via
+// /api/jar/complete.
 
 interface IdeaRow {
   id: string;
-  author: string;
-  body: string;
   status: string;
 }
 
@@ -39,55 +34,47 @@ export async function POST(req: Request) {
 
   const { data: idea, error: readErr } = await supabase
     .from("date_ideas")
-    .select("id, author, body, status")
+    .select("id, status")
     .eq("id", body.id)
     .single<IdeaRow>();
   if (readErr || !idea) {
     return NextResponse.json({ error: "idea not found" }, { status: 404 });
   }
   if (idea.status !== "in_jar") {
-    return NextResponse.json({ error: "idea already taken" }, { status: 409 });
+    return NextResponse.json(
+      { error: "idea is not in the jar" },
+      { status: 409 },
+    );
   }
 
-  const x = (Math.random() - 0.5) * 2 * COORD_SPREAD;
-  const y = (Math.random() - 0.5) * 2 * COORD_SPREAD;
-  const rotation = (Math.random() - 0.5) * 2 * ROTATION_SPREAD;
+  // Cheap precheck before relying on the unique partial index. Gives a
+  // friendlier error than a raw constraint violation.
+  const { data: existingPending } = await supabase
+    .from("date_ideas")
+    .select("id")
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
+  if (existingPending) {
+    return NextResponse.json(
+      { error: "another date is already pending — finish or cancel it first" },
+      { status: 409 },
+    );
+  }
 
-  const { data: note, error: noteErr } = await supabase
-    .from("notes")
-    .insert({
-      author: idea.author,
-      body: idea.body,
-      color: "lemon",
-      x,
-      y,
-      rotation,
-    })
+  const { data: updated, error: updateErr } = await supabase
+    .from("date_ideas")
+    .update({ status: "pending" })
+    .eq("id", body.id)
+    .eq("status", "in_jar")
     .select()
     .single();
-  if (noteErr || !note) {
+  if (updateErr || !updated) {
     return NextResponse.json(
-      { error: noteErr?.message ?? "note insert failed" },
+      { error: updateErr?.message ?? "failed to update" },
       { status: 500 },
     );
   }
 
-  const { error: updateErr } = await supabase
-    .from("date_ideas")
-    .update({
-      status: "taken",
-      taken_at: new Date().toISOString(),
-      taken_note_id: note.id,
-    })
-    .eq("id", body.id);
-  if (updateErr) {
-    // Note already exists; surface the partial failure but the user
-    // will still see the note appear on the canvas via Realtime.
-    return NextResponse.json(
-      { note, warning: updateErr.message },
-      { status: 200 },
-    );
-  }
-
-  return NextResponse.json({ note });
+  return NextResponse.json({ pending: updated });
 }

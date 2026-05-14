@@ -8,10 +8,13 @@ import SelfPicker from "@/components/SelfPicker";
 import JarVisual from "./JarVisual";
 import JarComposer from "./JarComposer";
 import JarDraw from "./JarDraw";
+import JarPendingBanner from "./JarPendingBanner";
+import JarCompleteSheet from "./JarCompleteSheet";
 
 const EMPTY_STATE: JarState = {
   count: 0,
   byAuthor: { emo: 0, magi: 0 },
+  pending: null,
 };
 
 const CACHE_KEY = "memo:jar_state";
@@ -28,7 +31,13 @@ function readCachedState(): JarState {
       typeof parsed.byAuthor.emo === "number" &&
       typeof parsed.byAuthor.magi === "number"
     ) {
-      return parsed as JarState;
+      return {
+        count: parsed.count,
+        byAuthor: parsed.byAuthor,
+        // `pending` was added in the dates rework; older cached payloads
+        // won't have it and that's fine.
+        pending: parsed.pending ?? null,
+      };
     }
   } catch {
     /* corrupt cache — ignore */
@@ -53,6 +62,7 @@ export default function JarClient() {
   const [state, setState] = useState<JarState>(readCachedState);
   const [composing, setComposing] = useState(false);
   const [drawing, setDrawing] = useState(false);
+  const [logging, setLogging] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
   // Prefetch the canvas bundle so "canvas" navigation is also instant.
@@ -98,12 +108,23 @@ export default function JarClient() {
 
   const handleTaken = useCallback(() => {
     setDrawing(false);
-    setFlash("taken. heading to canvas…");
+    setFlash("now pending. log it when the date happens.");
     void fetchState();
-    // Brief pause so the user reads the toast, then over to the canvas
-    // where Realtime will surface the new sticky note.
-    setTimeout(() => router.push("/"), 900);
-  }, [fetchState, router]);
+    setTimeout(() => setFlash(null), 2400);
+  }, [fetchState]);
+
+  const handleCancelPending = useCallback(() => {
+    setFlash("back in the jar.");
+    void fetchState();
+    setTimeout(() => setFlash(null), 1800);
+  }, [fetchState]);
+
+  const handleCompleted = useCallback(() => {
+    setLogging(false);
+    setFlash("date logged. saved to archive.");
+    void fetchState();
+    setTimeout(() => setFlash(null), 2400);
+  }, [fetchState]);
 
   const selfTyped = self as Author | null;
   const emoCount = state.byAuthor.emo;
@@ -126,7 +147,15 @@ export default function JarClient() {
       </header>
 
       <main className="min-h-[calc(100vh-44px)] flex flex-col items-center px-5 pt-6 pb-10">
-        <h1 className="font-display text-5xl sm:text-6xl leading-none">
+        {state.pending && (
+          <JarPendingBanner
+            idea={state.pending}
+            onCancel={handleCancelPending}
+            onLog={() => setLogging(true)}
+          />
+        )}
+
+        <h1 className="font-display text-5xl sm:text-6xl leading-none mt-6">
           the jar<span className="text-coral">.</span>
         </h1>
         <p className="mt-2 font-pixel text-[10px] tracking-widest uppercase text-ink-soft text-center max-w-[260px]">
@@ -163,7 +192,12 @@ export default function JarClient() {
           </button>
           <button
             onClick={() => setDrawing(true)}
-            disabled={state.count === 0}
+            disabled={state.count === 0 || state.pending !== null}
+            title={
+              state.pending !== null
+                ? "finish or cancel the pending date first"
+                : undefined
+            }
             className="px-4 py-3.5 border-2 border-ink bg-coral text-ink font-pixel text-[11px] tracking-widest uppercase cursor-pointer active:translate-x-[3px] active:translate-y-[3px] shadow-[4px_4px_0_var(--ink)] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             draw one →
@@ -188,6 +222,14 @@ export default function JarClient() {
         <JarDraw
           onClose={() => setDrawing(false)}
           onTaken={handleTaken}
+        />
+      )}
+      {logging && state.pending && selfTyped && (
+        <JarCompleteSheet
+          self={selfTyped}
+          idea={state.pending}
+          onCancel={() => setLogging(false)}
+          onCompleted={handleCompleted}
         />
       )}
     </>

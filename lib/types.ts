@@ -42,6 +42,10 @@ export interface Photo {
   pinned_y: number | null;
   pinned_rotation: number;
   pinned_at: string | null;
+  // When non-null, the photo is bound to a date idea — reveals
+  // immediately, never pinned on canvas, never in tonight's reveal sheet.
+  // See migration 0007.
+  date_idea_id: string | null;
 }
 
 export interface Song {
@@ -66,18 +70,29 @@ export interface SpotifyTrack {
   albumArt: string | null;
 }
 
+export type DateIdeaStatus = "in_jar" | "pending" | "taken" | "completed";
+
 export interface DateIdea {
   id: string;
   author: Author;
   body: string;
-  status: "in_jar" | "taken";
+  status: DateIdeaStatus;
+  // Legacy fields kept for back-compat with rows created before the
+  // dates rework (migration 0007). New flow uses pending → completed.
   taken_at: string | null;
   taken_note_id: string | null;
+  // New flow fields. Populated only when status = 'completed'.
+  event_at: string | null;
+  caption: string | null;
+  completed_at: string | null;
   created_at: string;
 }
 
-// Public shape of the jar — counts only, idea bodies never sent unless drawn.
+// Public shape of the jar — in-jar counts plus the single pending date
+// entity if one exists. Pending bodies are intentionally returned (the
+// user already drew it; hiding the body would be useless).
 export interface JarState {
   count: number;
   byAuthor: Record<Author, number>;
+  pending: DateIdea | null;
 }

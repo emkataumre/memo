@@ -5,8 +5,12 @@
  * fits `targetBytes`. Returns the first blob that fits, or the smallest one
  * tried if none fit. Decoding the source bitmap is the expensive step, so we
  * reuse it across encode passes.
+ *
+ * Output is WebP — ~25-35% smaller than JPEG at equivalent quality. Encode
+ * runs through the same `canvas.convertToBlob` / `toBlob` paths, so no
+ * additional dep or noticeable slowdown vs JPEG.
  */
-export async function resizeToJpegBudget(
+export async function resizeToWebpBudget(
   source: Blob,
   maxLongEdge: number,
   qualities: number[],
@@ -20,7 +24,7 @@ export async function resizeToJpegBudget(
     const h = Math.max(1, Math.round(bitmap.height * ratio));
     let smallest: Blob | null = null;
     for (const q of qualities) {
-      const blob = await drawToJpeg(bitmap, w, h, q);
+      const blob = await drawToWebp(bitmap, w, h, q);
       if (blob.size <= targetBytes) return blob;
       if (!smallest || blob.size < smallest.size) smallest = blob;
     }
@@ -30,7 +34,7 @@ export async function resizeToJpegBudget(
   }
 }
 
-async function drawToJpeg(
+async function drawToWebp(
   bitmap: ImageBitmap,
   w: number,
   h: number,
@@ -41,7 +45,7 @@ async function drawToJpeg(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     ctx.drawImage(bitmap, 0, 0, w, h);
-    return await canvas.convertToBlob({ type: "image/jpeg", quality });
+    return await canvas.convertToBlob({ type: "image/webp", quality });
   }
   // Fallback for older Safari
   const canvas = document.createElement("canvas");
@@ -53,7 +57,7 @@ async function drawToJpeg(
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
-      "image/jpeg",
+      "image/webp",
       quality,
     );
   });

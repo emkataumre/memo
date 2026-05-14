@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useSelf } from "@/lib/self/useSelf";
-import { resizeToJpegBudget } from "@/lib/image/resize";
+import { resizeToWebpBudget } from "@/lib/image/resize";
 import { makeSquareThumbnail } from "@/lib/image/thumbnail";
 
 export type CaptureState = "idle" | "processing" | "uploading" | "error";
@@ -35,14 +35,14 @@ export function useCapture(onUploaded?: () => void): CaptureApi {
       setState("processing");
       try {
         const [full, thumb] = await Promise.all([
-          resizeToJpegBudget(file, 1600, [0.82, 0.74, 0.66], 450 * 1024),
+          resizeToWebpBudget(file, 1600, [0.82, 0.74, 0.66], 450 * 1024),
           makeSquareThumbnail(file, 256, 0.72),
         ]);
 
         setState("uploading");
         const form = new FormData();
-        form.append("file", full, `${Date.now()}.jpg`);
-        form.append("thumb", thumb, `${Date.now()}_thumb.jpg`);
+        form.append("file", full, `${Date.now()}.webp`);
+        form.append("thumb", thumb, `${Date.now()}_thumb.webp`);
         form.append("author", self);
 
         const res = await fetch("/api/photos/upload", {

@@ -357,6 +357,7 @@ export default function CanvasClient() {
         cacheLoadNotes(),
         cacheLoadPhotos(),
         cacheLoadSongs(),
+        signCache.hydrate(),
       ]);
       if (cancelled) return;
       if (cachedNotes.length) setNotes(cachedNotes);

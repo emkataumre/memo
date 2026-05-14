@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { mintRealtimeJwt } from "@/lib/session/jwt";
 
-// The proxy gates this route on the passphrase cookie. By the time we run
-// here, the caller has already authenticated. We just mint a fresh JWT.
+// Runs at the edge: handler is a pure Web Crypto HS256 sign with no DB
+// access, so a regional POP execution skips ~50-100ms of Node cold-start
+// versus the default serverless runtime. The proxy (also edge) gates
+// this route on the passphrase cookie, so by the time we run here the
+// caller has already authenticated.
+export const runtime = "edge";
+
 export async function GET() {
   try {
     const { token, expiresAt } = await mintRealtimeJwt();

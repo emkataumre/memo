@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-// Bottom-center toast that surfaces a Realtime disconnect. Hidden for
-// the first SHOW_AFTER_MS so transient blips (millisecond reconnects)
-// don't flash a banner. Auto-hides as soon as the channel reports
-// `connected` again.
+// Bottom-center toast that surfaces a Realtime disconnect. Held back
+// for the first SHOW_AFTER_MS so transient blips (sub-second reconnects)
+// don't flash. The render gate is `connected || !shouldShow` — if the
+// channel is currently connected at render time, the pill is hidden
+// regardless of whether the delayed setShouldShow(false) has been
+// flushed yet. That belt-and-suspenders avoids the failure mode where
+// the shouldShow flag stayed `true` after a reconnect.
 
 interface Props {
   connected: boolean;
@@ -14,22 +17,19 @@ interface Props {
 const SHOW_AFTER_MS = 1500;
 
 export default function ConnectionToast({ connected }: Props) {
-  const [visible, setVisible] = useState(false);
+  const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
     if (connected) {
-      // Reconnected — hide immediately. setState inside an effect is
-      // intentional here (we're synchronising UI to an external prop,
-      // which is exactly what useEffect is for).
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setVisible(false);
+      setShouldShow(false);
       return;
     }
-    const t = setTimeout(() => setVisible(true), SHOW_AFTER_MS);
+    const t = setTimeout(() => setShouldShow(true), SHOW_AFTER_MS);
     return () => clearTimeout(t);
   }, [connected]);
 
-  if (!visible) return null;
+  if (connected || !shouldShow) return null;
 
   return (
     <div

@@ -42,7 +42,7 @@ import ZenExit from "./ZenExit";
 import ZenZoomBar from "./ZenZoomBar";
 import ConnectionToast from "./ConnectionToast";
 import OutboxBadge from "./OutboxBadge";
-import { drain, enqueue } from "@/lib/outbox/outbox";
+import { drain, enqueue, updateQueuedItems } from "@/lib/outbox/outbox";
 import type {
   Author,
   Note,
@@ -621,9 +621,26 @@ export default function CanvasClient() {
         n.id === id ? { ...n, x, y, updated_at: new Date().toISOString() } : n,
       ),
     );
-    // Skip persistence for temp ids — the queued `note:create` carries
-    // the latest coords already (last move wins, no separate PATCH).
-    if (id.startsWith("temp-")) return;
+    // Temp id: the create POST is still queued. Patch its body so the
+    // drain replays with the latest coords instead of where the note
+    // was originally dropped.
+    if (id.startsWith("temp-")) {
+      await updateQueuedItems(
+        (item) =>
+          item.tag === "note:create" &&
+          typeof item.meta?.tempId === "string" &&
+          item.meta.tempId === id,
+        (item) => ({
+          ...item,
+          body: {
+            ...(item.body as Record<string, unknown>),
+            x,
+            y,
+          },
+        }),
+      );
+      return;
+    }
     try {
       const res = await fetch(`/api/notes/${id}`, {
         method: "PATCH",

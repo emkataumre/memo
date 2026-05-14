@@ -143,6 +143,33 @@ async function updateItem(item: OutboxItem): Promise<void> {
   });
 }
 
+// Cursor-walk every queued item, replacing matches in place. Used when
+// a follow-up mutation should be folded into a still-queued earlier one
+// — e.g. moving a temp note before its create has drained.
+export async function updateQueuedItems(
+  predicate: (item: OutboxItem) => boolean,
+  mutator: (item: OutboxItem) => OutboxItem,
+): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) {
+        resolve();
+        return;
+      }
+      const item = cursor.value as OutboxItem;
+      if (predicate(item)) cursor.update(mutator(item));
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+  void emit();
+}
+
 let draining = false;
 
 export async function drain(

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import type { Author, NoteColor } from "@/lib/types";
+import type { Author, NoteColor, NoteVariant } from "@/lib/types";
 
 const VALID_COLORS: NoteColor[] = ["lemon", "pink", "sky", "mint"];
 const VALID_AUTHORS: Author[] = ["emo", "magi"];
+const VALID_VARIANTS: NoteVariant[] = [
+  "classic",
+  "strip",
+  "grain",
+  "tape",
+  "quote",
+];
 
 export async function GET() {
   const supabase = getSupabaseServer();
@@ -52,17 +59,41 @@ export async function POST(req: Request) {
   const finalRotation =
     typeof rotation === "number" && Number.isFinite(rotation) ? rotation : 0;
 
+  // Optional explicit size (drained from outbox after offline resize).
+  const widthIn = body.width;
+  const heightIn = body.height;
+  const finalWidth =
+    typeof widthIn === "number" && Number.isFinite(widthIn)
+      ? Math.round(Math.max(208, Math.min(480, widthIn)))
+      : null;
+  const finalHeight =
+    typeof heightIn === "number" && Number.isFinite(heightIn)
+      ? Math.round(Math.max(128, Math.min(480, heightIn)))
+      : null;
+
+  const variantIn = body.variant;
+  const finalVariant: NoteVariant =
+    typeof variantIn === "string" &&
+    VALID_VARIANTS.includes(variantIn as NoteVariant)
+      ? (variantIn as NoteVariant)
+      : "classic";
+
+  const insertPayload: Record<string, unknown> = {
+    author,
+    body: text,
+    color: finalColor,
+    x,
+    y,
+    rotation: finalRotation,
+    variant: finalVariant,
+  };
+  if (finalWidth !== null) insertPayload.width = finalWidth;
+  if (finalHeight !== null) insertPayload.height = finalHeight;
+
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from("notes")
-    .insert({
-      author,
-      body: text,
-      color: finalColor,
-      x,
-      y,
-      rotation: finalRotation,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 

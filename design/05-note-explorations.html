@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>memo · sticky note explorations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=JetBrains+Mono:wght@400;500;700&family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f2e8d5;
+    --paper-deep: #eadcbf;
+    --paper-warm: #f4dfb8;
+    --ink: #181615;
+    --ink-deep: #0e0c0b;
+    --ink-soft: #4a453e;
+    --coral: #ff5c39;
+    --coral-deep: #d34423;
+    --lemon: #f4d03f;
+    --pink: #ff9bbf;
+    --sky: #9dd0ff;
+    --mint: #aee8be;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    background-image: radial-gradient(circle, rgba(24,22,21,0.07) 1px, transparent 1px);
+    background-size: 16px 16px;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 56px 32px 120px;
+  }
+
+  /* Header */
+  .hero {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 28px;
+    margin-bottom: 56px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .hero h1 {
+    font-family: "Caprasimo", serif;
+    font-size: clamp(48px, 7vw, 88px);
+    line-height: 0.95;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .hero h1 .dot { color: var(--coral); }
+  .hero p {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 340px;
+    line-height: 1.5;
+  }
+  .badge {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 6px 10px;
+    border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--coral);
+  }
+
+  /* Sections */
+  section { margin-bottom: 80px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .section-num {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--coral);
+    background: var(--paper);
+    border: 2px solid var(--coral);
+    padding: 4px 8px;
+  }
+  .section-head h2 {
+    font-family: "Caprasimo", serif;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .section-head p {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+    flex-basis: 100%;
+    max-width: 680px;
+  }
+
+  /* Note base */
+  .note {
+    position: relative;
+    background: var(--lemon);
+    border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 20px;
+    font-family: "JetBrains Mono", monospace;
+    line-height: 1.45;
+    color: var(--ink);
+    transform-origin: center center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+  }
+  .note:hover {
+    /* Only here so cards feel responsive in the preview — production
+       app is touch-only and won't have hover. */
+    transform: translateY(-2px) rotate(0deg) !important;
+    box-shadow: 10px 10px 0 var(--ink);
+  }
+  .note .author {
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  /* Colors */
+  .note.lemon { background: var(--lemon); }
+  .note.pink { background: var(--pink); }
+  .note.sky { background: var(--sky); }
+  .note.mint { background: var(--mint); }
+
+  /* ============================================ */
+  /* Section 1: Scaling progression — the key idea */
+  /* ============================================ */
+  .scale-row {
+    display: grid;
+    grid-template-columns: 208px 320px 1fr;
+    gap: 32px;
+    align-items: end;
+    padding-bottom: 40px;
+  }
+  @media (max-width: 900px) {
+    .scale-row { grid-template-columns: 1fr; }
+  }
+
+  .note.small { width: 208px; min-height: 128px; font-size: 14px; transform: rotate(-2deg); }
+  .note.med   { width: 320px; min-height: 220px; font-size: 17px; transform: rotate(1.5deg); }
+  .note.med .lead {
+    font-family: "Caprasimo", serif;
+    font-size: 28px;
+    line-height: 1;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .note.large { width: 100%; min-height: 320px; padding: 40px; transform: rotate(-0.5deg); }
+  .note.large .lead {
+    font-family: "Caprasimo", serif;
+    font-size: clamp(48px, 6vw, 80px);
+    line-height: 0.95;
+    margin: 0 0 18px;
+    letter-spacing: -0.015em;
+  }
+  .note.large .lead .accent { color: var(--coral); }
+  .note.large .support {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+    color: var(--ink-soft);
+    max-width: 520px;
+    line-height: 1.55;
+  }
+  .note.large .author { font-size: 12px; bottom: 16px; right: 24px; }
+
+  .scale-caption {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 12px;
+  }
+  .scale-caption strong { color: var(--ink); }
+
+  /* ============================================ */
+  /* Section 2: Style variations grid             */
+  /* ============================================ */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 40px 32px;
+  }
+  .card-label {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-label .name { color: var(--ink); }
+  .card-label .desc { opacity: 0.7; max-width: 180px; text-align: right; }
+
+  /* Variation A: classic baseline */
+  .note.a { transform: rotate(-1.5deg); width: 100%; min-height: 200px; font-size: 15px; }
+
+  /* Variation B: header strip */
+  .note.b { transform: rotate(1deg); width: 100%; min-height: 200px; padding-top: 44px; background: var(--paper-deep); font-size: 15px; }
+  .note.b .strip {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 28px;
+    background: var(--coral);
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  /* Variation C: paper grain dots */
+  .note.c {
+    transform: rotate(-2deg);
+    width: 100%;
+    min-height: 200px;
+    background:
+      radial-gradient(circle, rgba(24,22,21,0.09) 1px, transparent 1.4px) 0 0/8px 8px,
+      var(--mint);
+    font-size: 15px;
+  }
+
+  /* Variation D: washi tape */
+  .note.d { transform: rotate(0.5deg); width: 100%; min-height: 200px; margin-top: 18px; background: var(--paper); font-size: 15px; }
+  .note.d .tape {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-4deg);
+    width: 110px;
+    height: 28px;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(255,92,57,0.55) 0 8px,
+      rgba(255,92,57,0.35) 8px 16px
+    );
+    border-left: 1px dashed rgba(24,22,21,0.35);
+    border-right: 1px dashed rgba(24,22,21,0.35);
+    box-shadow: 0 2px 4px rgba(24,22,21,0.15);
+  }
+
+  /* Variation E: coral underline accent */
+  .note.e { transform: rotate(-1deg); width: 100%; min-height: 200px; background: var(--lemon); font-size: 15px; }
+  .note.e .hit {
+    display: inline;
+    background: linear-gradient(transparent 65%, var(--coral) 65%, var(--coral) 95%, transparent 95%);
+    padding: 0 2px;
+  }
+
+  /* Variation F: big quote / display dominant */
+  .note.f {
+    transform: rotate(1.5deg);
+    width: 100%;
+    min-height: 220px;
+    background: var(--pink);
+    padding: 28px;
+  }
+  .note.f .quote {
+    font-family: "Caprasimo", serif;
+    font-size: 38px;
+    line-height: 0.95;
+    margin: 0;
+    letter-spacing: -0.012em;
+  }
+  .note.f .quote::before {
+    content: "“";
+    font-family: "Caprasimo", serif;
+    font-size: 64px;
+    line-height: 0;
+    margin-right: 6px;
+    color: var(--coral);
+    vertical-align: -0.18em;
+  }
+  .note.f .attribution {
+    font-family: "JetBrains Mono", monospace;
+    font-style: italic;
+    font-size: 12px;
+    margin-top: 18px;
+    color: var(--ink-soft);
+  }
+
+  /* Variation G: pin/thumbtack */
+  .note.g { transform: rotate(-1.2deg); width: 100%; min-height: 200px; background: var(--sky); padding-top: 32px; font-size: 15px; }
+  .note.g .pin {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 22px;
+    background: radial-gradient(circle at 35% 30%, #ff8769 0%, var(--coral) 45%, var(--coral-deep) 100%);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    box-shadow: 0 3px 0 rgba(24,22,21,0.4);
+  }
+  .note.g .pin::after {
+    content: "";
+    position: absolute;
+    inset: 4px 4px auto auto;
+    width: 5px;
+    height: 5px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 50%;
+  }
+
+  /* Variation H: date stamp */
+  .note.h { transform: rotate(-0.5deg); width: 100%; min-height: 200px; background: var(--lemon); font-size: 15px; }
+  .note.h .stamp {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 64px;
+    height: 64px;
+    border: 2px solid var(--coral);
+    color: var(--coral);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    transform: rotate(-14deg);
+    opacity: 0.85;
+  }
+  .note.h .stamp .day { font-family: "Caprasimo", serif; font-size: 22px; letter-spacing: 0; line-height: 1; margin-top: 2px; }
+
+  /* ============================================ */
+  /* Section 3: Composer control mockup           */
+  /* ============================================ */
+  .composer {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    box-shadow: 8px 8px 0 var(--ink);
+    padding: 24px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  .composer .head {
+    background: var(--ink);
+    color: var(--paper);
+    margin: -24px -24px 20px;
+    padding: 8px 14px;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+  }
+  .composer .field {
+    margin-bottom: 18px;
+  }
+  .composer label {
+    display: block;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .composer textarea {
+    width: 100%;
+    background: #fff;
+    border: 2px solid var(--ink);
+    padding: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 15px;
+    color: var(--ink);
+    resize: vertical;
+    min-height: 96px;
+  }
+  .composer textarea:focus {
+    outline: none;
+    border-color: var(--coral);
+    box-shadow: 3px 3px 0 var(--coral);
+  }
+  .swatches { display: flex; gap: 8px; }
+  .swatch {
+    width: 28px; height: 28px;
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .swatch.active { box-shadow: 0 0 0 3px var(--coral), 2px 2px 0 var(--coral); }
+  .swatch.l { background: var(--lemon); }
+  .swatch.p { background: var(--pink); }
+  .swatch.s { background: var(--sky); }
+  .swatch.m { background: var(--mint); }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    cursor: pointer;
+  }
+  .chip.active { background: var(--coral); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+  .composer .submit {
+    background: var(--coral);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    padding: 12px 18px;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  /* ============================================ */
+  /* Section 4: Live size slider demo             */
+  /* ============================================ */
+  .slider-demo {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 48px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .slider-demo { grid-template-columns: 1fr; } }
+  .demo-stage {
+    background: var(--paper-deep);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background-image: radial-gradient(circle, rgba(24,22,21,0.08) 1px, transparent 1px);
+    background-size: 12px 12px;
+    min-height: 480px;
+    padding: 60px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .demo-note {
+    position: relative;
+    background: var(--lemon);
+    border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 20px;
+    line-height: 1.4;
+    transform: rotate(-1.5deg);
+    transition: width 0.15s ease, min-height 0.15s ease, font-size 0.15s ease;
+  }
+  .demo-note .lead {
+    margin: 0;
+    line-height: 0.98;
+    letter-spacing: -0.01em;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .demo-note .body {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--ink-soft);
+    margin-top: 12px;
+  }
+  .demo-note .author {
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+    font-family: "Pixelify Sans", monospace;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .controls {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    padding: 20px;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .controls .read {
+    font-family: "Caprasimo", serif;
+    font-size: 32px;
+    line-height: 0.95;
+    margin: 0 0 6px;
+  }
+  .controls .sub {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--ink);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--coral);
+    border: 2px solid var(--ink);
+    margin-top: -8px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  input[type=range]::-moz-range-track { height: 4px; background: var(--ink); }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    background: var(--coral);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+    border-radius: 0;
+  }
+
+  .threshold-key {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;
+  }
+  .threshold-key span {
+    font-family: "Pixelify Sans", monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+  }
+  .threshold-key span.active { background: var(--coral); color: var(--ink); }
+
+  .footer-note {
+    text-align: center;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 2px solid var(--ink);
+  }
+  .footer-note .heart { color: var(--coral); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hero">
+    <h1>note explorations<span class="dot">.</span></h1>
+    <p>typography that grows with the note. eight visual takes. a composer hint.</p>
+    <span class="badge">v1 · sticky</span>
+  </header>
+
+  <!-- ============================================ -->
+  <!-- 1. Scaling progression                       -->
+  <!-- ============================================ -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <h2>typography climbs the size</h2>
+      <p>
+        Below 240 wide: pure mono, tight. Past 240: the first line graduates
+        to Caprasimo display while the rest stays mono — a quiet headline.
+        Past 380: the whole note becomes the headline. The bigger the box,
+        the more the note acts like a poster instead of a memo.
+      </p>
+    </div>
+
+    <div class="scale-row">
+      <div>
+        <div class="note small lemon">
+          coffee at 4? <br/>i miss you.
+          <span class="author">emo</span>
+        </div>
+        <div class="scale-caption"><strong>208 × 128</strong> · mono only</div>
+      </div>
+
+      <div>
+        <div class="note med pink">
+          <p class="lead">we should go.</p>
+          <div>back to that gelato place. before it gets cold.</div>
+          <span class="author">magi</span>
+        </div>
+        <div class="scale-caption"><strong>320 × 220</strong> · display lead + mono body</div>
+      </div>
+
+      <div>
+        <div class="note large mint">
+          <p class="lead">i love you<span class="accent">.</span></p>
+          <div class="support">
+            even when you fall asleep on the couch and steal the blanket.
+            even when the dishes pile up. especially then, actually.
+          </div>
+          <span class="author">emo</span>
+        </div>
+        <div class="scale-caption"><strong>full · 380+</strong> · display dominant · big idea mode</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 2. Visual variations                         -->
+  <!-- ============================================ -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2>eight ways to wear it</h2>
+      <p>
+        Same content, different treatments. Decoration as a per-note toggle
+        keeps the canvas varied without exposing a whole theming surface.
+      </p>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="note a lemon">
+          remembered to buy the cilantro this time. miracle.
+          <span class="author">emo</span>
+        </div>
+        <div class="card-label"><span class="name">A · CLASSIC</span><span class="desc">current shipped look</span></div>
+      </div>
+
+      <div>
+        <div class="note b">
+          <div class="strip"><span>EMO</span><span>14 MAY · 22:08</span></div>
+          dishes done. flowers on the table. door unlocked when you're back.
+          <span class="author">emo</span>
+        </div>
+        <div class="card-label"><span class="name">B · HEADER STRIP</span><span class="desc">author + time as a coral bar</span></div>
+      </div>
+
+      <div>
+        <div class="note c">
+          stay there, i'll come to you.
+          <span class="author">magi</span>
+        </div>
+        <div class="card-label"><span class="name">C · PAPER GRAIN</span><span class="desc">dot-pattern bg for texture</span></div>
+      </div>
+
+      <div>
+        <div class="note d">
+          <div class="tape"></div>
+          taped this one up.
+          <span class="author">magi</span>
+        </div>
+        <div class="card-label"><span class="name">D · WASHI TAPE</span><span class="desc">decorative tape at the top</span></div>
+      </div>
+
+      <div>
+        <div class="note e lemon">
+          today's plan: <span class="hit">do nothing together</span>. that's the whole list.
+          <span class="author">emo</span>
+        </div>
+        <div class="card-label"><span class="name">E · ACCENT STROKE</span><span class="desc">coral underline emphasis</span></div>
+      </div>
+
+      <div>
+        <div class="note f">
+          <p class="quote">tiny pasta tonight.</p>
+          <div class="attribution">— signed, the chef</div>
+        </div>
+        <div class="card-label"><span class="name">F · QUOTE MODE</span><span class="desc">display-only, italic attribution</span></div>
+      </div>
+
+      <div>
+        <div class="note g">
+          <div class="pin"></div>
+          flight lands at 18:40 — pick me up?
+          <span class="author">magi</span>
+        </div>
+        <div class="card-label"><span class="name">G · THUMBTACK</span><span class="desc">pin asset at top center</span></div>
+      </div>
+
+      <div>
+        <div class="note h">
+          <div class="stamp">MAY<span class="day">14</span></div>
+          first warm day. it counts.
+          <span class="author">emo</span>
+        </div>
+        <div class="card-label"><span class="name">H · DATE STAMP</span><span class="desc">circular rubber-stamp date corner</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 3. Composer hint                             -->
+  <!-- ============================================ -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <h2>just enough control</h2>
+      <p>
+        A small panel in the composer. Color stays. Tone toggle picks the
+        typography ladder (note / quote). Decoration picks one decorative
+        flourish (none / tape / pin / stamp). That's three new knobs total.
+      </p>
+    </div>
+
+    <div class="composer">
+      <div class="head">
+        <span>new note · emo</span>
+        <span>✕</span>
+      </div>
+
+      <div class="field">
+        <label>your note</label>
+        <textarea>tiny pasta tonight.</textarea>
+      </div>
+
+      <div class="field">
+        <label>color</label>
+        <div class="swatches">
+          <div class="swatch l"></div>
+          <div class="swatch p active"></div>
+          <div class="swatch s"></div>
+          <div class="swatch m"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>tone</label>
+        <div class="chips">
+          <span class="chip">note</span>
+          <span class="chip active">quote</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>decoration</label>
+        <div class="chips">
+          <span class="chip active">none</span>
+          <span class="chip">tape</span>
+          <span class="chip">pin</span>
+          <span class="chip">stamp</span>
+        </div>
+      </div>
+
+      <button class="submit">post note →</button>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 4. Live scaling demo                         -->
+  <!-- ============================================ -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">04</span>
+      <h2>drag to see the ladder</h2>
+      <p>
+        Live: pull the slider to grow the note. Watch the lead typography
+        cross thresholds — mono → mono-bigger → display headline.
+      </p>
+    </div>
+
+    <div class="slider-demo">
+      <div class="demo-stage">
+        <div class="demo-note" id="demoNote">
+          <p class="lead" id="demoLead">i love you.</p>
+          <div class="body" id="demoBody">even when you fall asleep on the couch and steal the blanket.</div>
+          <span class="author">emo</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <p class="read"><span id="readW">208</span> × <span id="readH">128</span></p>
+        <p class="sub">canvas-space pixels</p>
+
+        <label class="sub" style="display:block; margin-top:6px;">width</label>
+        <input id="w" type="range" min="208" max="480" value="208" />
+
+        <label class="sub" style="display:block; margin-top:14px;">height</label>
+        <input id="h" type="range" min="128" max="480" value="128" />
+
+        <div class="threshold-key" id="thresholds">
+          <span data-band="mono">MONO</span>
+          <span data-band="display-lead">DISPLAY LEAD</span>
+          <span data-band="display-all">FULL DISPLAY</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footer-note">
+    memo · designed for two<span class="heart"> ♥ </span>tap to copy any treatment into the spec
+  </p>
+
+</div>
+
+<script>
+  const w = document.getElementById('w');
+  const h = document.getElementById('h');
+  const note = document.getElementById('demoNote');
+  const lead = document.getElementById('demoLead');
+  const body = document.getElementById('demoBody');
+  const readW = document.getElementById('readW');
+  const readH = document.getElementById('readH');
+  const thresholds = document.getElementById('thresholds');
+
+  function tick() {
+    const W = +w.value;
+    const H = +h.value;
+    note.style.width = W + 'px';
+    note.style.minHeight = H + 'px';
+    readW.textContent = W;
+    readH.textContent = H;
+
+    let band;
+    if (W < 240) {
+      band = 'mono';
+      lead.style.fontFamily = 'JetBrains Mono, monospace';
+      lead.style.fontSize = Math.round(15 * W / 208) + 'px';
+      lead.style.fontWeight = '500';
+      body.style.fontSize = Math.round(13 * W / 208) + 'px';
+    } else if (W < 380) {
+      band = 'display-lead';
+      lead.style.fontFamily = 'Caprasimo, serif';
+      lead.style.fontSize = Math.round(34 * W / 320) + 'px';
+      lead.style.fontWeight = '400';
+      body.style.fontSize = Math.round(15 * W / 320) + 'px';
+    } else {
+      band = 'display-all';
+      lead.style.fontFamily = 'Caprasimo, serif';
+      lead.style.fontSize = Math.round(56 * W / 420) + 'px';
+      lead.style.fontWeight = '400';
+      body.style.fontSize = Math.round(17 * W / 420) + 'px';
+    }
+
+    thresholds.querySelectorAll('span').forEach(el => {
+      el.classList.toggle('active', el.dataset.band === band);
+    });
+  }
+  w.addEventListener('input', tick);
+  h.addEventListener('input', tick);
+  tick();
+</script>
+</body>
+</html>

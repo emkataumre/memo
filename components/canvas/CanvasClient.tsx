@@ -47,6 +47,7 @@ import type {
   Author,
   Note,
   NoteColor,
+  NoteVariant,
   Photo,
   Song,
   SpotifyTrack,
@@ -585,6 +586,7 @@ export default function CanvasClient() {
       rotation: number,
       body: string,
       color: NoteColor,
+      variant: NoteVariant,
     ) => {
       if (!self) return;
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -597,16 +599,21 @@ export default function CanvasClient() {
         x,
         y,
         rotation,
+        width: null,
+        height: null,
+        variant,
         created_at: now,
         updated_at: now,
       };
       setNotes((prev) => [...prev, optimistic]);
 
+      const postBody = { author: self, body, color, x, y, rotation, variant };
+
       try {
         const res = await fetch("/api/notes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author: self, body, color, x, y, rotation }),
+          body: JSON.stringify(postBody),
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = (await res.json()) as { note: Note };
@@ -621,12 +628,67 @@ export default function CanvasClient() {
           tag: "note:create",
           method: "POST",
           path: "/api/notes",
-          body: { author: self, body, color, x, y, rotation },
+          body: postBody,
           meta: { tempId },
         });
       }
     },
     [self],
+  );
+
+  const resizeNote = useCallback(
+    async (id: string, width: number, height: number) => {
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                width,
+                height,
+                updated_at: new Date().toISOString(),
+              }
+            : n,
+        ),
+      );
+      // Temp id: fold the new size into the queued create body so the
+      // drain replays at the right dimensions.
+      if (id.startsWith("temp-")) {
+        await updateQueuedItems(
+          (item) =>
+            item.tag === "note:create" &&
+            typeof item.meta?.tempId === "string" &&
+            item.meta.tempId === id,
+          (item) => ({
+            ...item,
+            body: {
+              ...(item.body as Record<string, unknown>),
+              width,
+              height,
+            },
+          }),
+        );
+        return;
+      }
+      try {
+        const res = await fetch(`/api/notes/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ width, height }),
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = (await res.json()) as { note: Note };
+        await cacheUpsertNote(data.note);
+      } catch {
+        await enqueue({
+          tag: "note:move",
+          method: "PATCH",
+          path: `/api/notes/${id}`,
+          body: { width, height },
+          meta: { noteId: id, kind: "resize" },
+        });
+      }
+    },
+    [],
   );
 
   const moveNote = useCallback(async (id: string, x: number, y: number) => {
@@ -1017,6 +1079,7 @@ export default function CanvasClient() {
               tier={tier}
               zoom={viewport.zoom}
               onMove={moveNote}
+              onResize={resizeNote}
               interactive={!zen}
               onDragStateChange={setCardDrag}
             />
@@ -1052,13 +1115,14 @@ export default function CanvasClient() {
               y={composing.y}
               rotation={composing.rotation}
               initialColor={composing.color}
-              onSubmit={(body, color) => {
+              onSubmit={(body, color, variant) => {
                 createNote(
                   composing.x,
                   composing.y,
                   composing.rotation,
                   body,
                   color,
+                  variant,
                 );
                 setComposing(null);
               }}

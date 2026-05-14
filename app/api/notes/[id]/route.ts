@@ -27,6 +27,12 @@ export async function PATCH(
   if (typeof body.y === "number" && Number.isFinite(body.y)) patch.y = body.y;
   if (typeof body.rotation === "number" && Number.isFinite(body.rotation))
     patch.rotation = body.rotation;
+  if (typeof body.width === "number" && Number.isFinite(body.width)) {
+    patch.width = Math.round(Math.max(208, Math.min(480, body.width)));
+  }
+  if (typeof body.height === "number" && Number.isFinite(body.height)) {
+    patch.height = Math.round(Math.max(128, Math.min(480, body.height)));
+  }
 
   const supabase = getSupabaseServer();
   const { data, error } = await supabase

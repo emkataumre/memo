@@ -121,7 +121,11 @@ function LockedTile({ photo, tilt }: { photo: Photo; tilt: number }) {
   return (
     <div
       className="relative bg-white border-2 border-ink shadow-[8px_8px_0_var(--ink)] p-3.5 pb-11"
-      style={{ transform: `rotate(${tilt}deg)` }}
+      style={{
+        transform: `rotate(${tilt}deg)`,
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 200px 240px",
+      }}
     >
       <div
         className="w-full aspect-square bg-ink-deep relative overflow-hidden flex items-center justify-center"

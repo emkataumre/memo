@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Photo } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
 import { usePhotoUrl } from "@/lib/photos/usePhotoUrls";
@@ -21,7 +21,7 @@ interface Props {
 
 type Phase = "idle" | "armed" | "dragging";
 
-export default function PhotoCard({
+function PhotoCard({
   photo,
   isToday,
   tier,
@@ -186,6 +186,8 @@ export default function PhotoCard({
           dragging ? "scale(1.03)" : ""
         }`,
         contain: "content",
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 208px 260px",
         willChange: dragging ? "transform" : undefined,
         touchAction: "none",
         zIndex: dragging ? 50 : undefined,
@@ -221,6 +223,8 @@ export default function PhotoCard({
     </div>
   );
 }
+
+export default memo(PhotoCard);
 
 function formatTakenAt(iso: string): string {
   const d = new Date(iso);

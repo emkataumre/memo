@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Song } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
 
@@ -19,7 +19,7 @@ interface Props {
 
 type Phase = "idle" | "armed" | "dragging";
 
-export default function SongCard({
+function SongCard({
   song,
   isToday,
   tier,
@@ -179,6 +179,8 @@ export default function SongCard({
           dragging ? "scale(1.03)" : ""
         }`,
         contain: "content",
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 280px 160px",
         willChange: dragging ? "transform" : undefined,
         touchAction: "none",
         zIndex: dragging ? 50 : undefined,
@@ -218,6 +220,8 @@ export default function SongCard({
     </div>
   );
 }
+
+export default memo(SongCard);
 
 function CassetteFront({
   song,

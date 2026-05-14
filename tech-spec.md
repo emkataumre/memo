@@ -2,7 +2,7 @@
 
 Private shared PWA for two people. Sticky-note canvas + disposable camera + song-of-the-day.
 
-Status: **LOCKED v1** (2026-05-13)
+Status: **v2 — Phases 1–5 shipped** (2026-05-14)
 
 ---
 
@@ -38,8 +38,9 @@ This is the foundation; everything else follows from it.
 - The whole app sits behind a single **shared passphrase** (your first-date date, etc.). Set in an env var.
 - First visit: passphrase prompt → on success, server sets a long-lived signed session cookie (`memo_session`, 1 year, `HttpOnly`, `SameSite=Lax`, `Secure`).
 - Every subsequent request goes through Next.js middleware which checks the cookie. No cookie → redirect to passphrase prompt.
-- After passphrase, on first launch each device picks a **"self" tag**: `emo` or `[her]`. Stored in `localStorage.memo_self`. Changeable from a settings screen.
+- After passphrase, on first launch each device picks a **"self" tag**: `emo` or `magi`. Stored in `localStorage.memo_self`. Changing later: clear `memo_self` via DevTools (no settings UI yet — TODO).
 - The "self" tag is attached as `author` on every note/photo/song. It's a **label, not an identity** — nothing prevents someone from changing it. That's fine; there are only two of you and the passphrase already gates entry.
+- Passphrase prompt is a **digit-only on-screen numpad** (no system keyboard). Display shows entered dots; backspace + enter as separate keys.
 
 ### Why this works
 - Two-person trust boundary. The passphrase is the only real gate.
@@ -60,16 +61,17 @@ Because there are no per-user JWTs, the **Supabase anon key cannot live in the b
 
 | Layer | Choice | Reason |
 |---|---|---|
-| Framework | **Next.js 15 (App Router) + React 19** | PWA-friendly, server actions handle the passphrase gate |
+| Framework | **Next.js 16 (App Router) + React 19** | PWA-friendly; middleware (now called `proxy.ts`) handles the passphrase gate |
 | Language | TypeScript strict | Per global preferences |
-| Styling | Tailwind CSS v4 | Fast, no design-system overhead |
+| Styling | Tailwind CSS v4 (`@theme inline`) | Fast, no design-system overhead. Design tokens live in `globals.css`. |
 | Backend | **Supabase** (Postgres + Storage), no Auth | Server-only access |
 | Hosting | **Vercel** | Free tier handles this |
-| PWA | `@ducanh2912/next-pwa` + hand-rolled `manifest.json` | Installable on iOS/Android |
-| Sync | Short polling (2–5s) via server actions | No client-side Supabase = no Realtime; polling fine for 2 users |
+| PWA | `app/manifest.ts` + dynamic icons via `next/og` `ImageResponse` | No `next-pwa` lib; built into Next 13+ conventions |
+| Sync | Short polling (3s) via `GET /api/state` server route | No client-side Supabase = no Realtime; polling fine for 2 users |
 | Camera | `<input type="file" accept="image/*" capture="environment">` | Native picker, works in iOS PWA, no `getUserMedia` permission UX |
 | Spotify | Web API (Client Credentials, server-side) + Spotify Embed iframe | No per-user OAuth |
-| Canvas | Custom CSS-transform pan/zoom + absolutely-positioned cards | tldraw/excalidraw too heavy; we only need pan + zoom + drag |
+| Canvas pan/zoom | **`@use-gesture/react`** + CSS transform | Library handles cross-browser pointer/wheel quirks. Pinch zoom intentionally disabled — on-screen controls only. |
+| Canvas perf | Custom `lib/canvas/spatial-index.ts` + `lib/canvas/lod.ts` + `idb` row cache | Built ourselves — exact fit for our card model |
 
 ---
 
@@ -139,7 +141,7 @@ $$ language plpgsql stable;
 
 create table notes (
   id uuid primary key default gen_random_uuid(),
-  author text not null,           -- 'emo' | 'her' (free text, validated app-side)
+  author text not null,           -- 'emo' | 'magi' (free text, validated app-side)
   body text not null,
   color text not null default 'yellow',
   x double precision not null,    -- canvas-space coords
@@ -212,29 +214,34 @@ insert into settings (id) values (1);
 
 ## 6. Canvas Mechanics
 
-**Coordinate system.** Notes and pinned photos/songs live in canvas-space — unbounded float `(x, y)`. Viewport applies a CSS `transform: translate(...) scale(...)`. Pan = drag empty canvas. Zoom = pinch / scroll wheel / ⌘+/−. Zoom range: `0.1×` to `4×`.
+**Coordinate system.** Notes and pinned photos/songs live in canvas-space — unbounded float `(x, y)`. Viewport applies a CSS `transform: translate(...) scale(...)`. Zoom range: `0.1×` to `4×`.
+
+**Interactions (mobile-first).**
+- **Pan** — single-finger drag from anywhere on canvas. Works even when the drag begins on top of a card (long-press hasn't fired → swipe through).
+- **Zoom** — on-screen controls (`+ / − / FIT`) mid-right, plus live percentage. **Pinch zoom is intentionally disabled** — too unreliable on iOS Safari; controls are the only zoom path.
+- **Wheel zoom** (desktop) — RAF-coalesced, per-event `dy` clamped ±80.
+- **Drag a note** — long-press 600ms on own note arms drag (haptic vibrate, coral pulse). Then drag freely; release to commit. Drift before HOLD_MS cancels the arm and the gesture becomes a pan instead. Partner's notes: read-only.
+- **Drag a photo/song card** — same long-press model. Pin coords author-agnostic; either person can drag any pinned card.
+- **Card / pan handoff** — when a card enters drag mode, a shared ref flag tells `@use-gesture` to `cancel()` its drag so the viewport doesn't pan in parallel.
+- **New note** — tap `+` FAB (bottom-center) → composer at viewport center.
+- **Tap a pinned photo** — opens full-size `PhotoViewer` modal.
+- **Tap a pinned song's play button** — mounts the Spotify `<iframe>` inline (lazy).
 
 **Performance.** Viewport culling + LOD applied from day one. See §14 for full strategy.
 
 **Day segregation — temporal opacity + halo.** Grouping uses **memo-day** (see §4), not calendar day.
-- Current memo-day (today's reveal cycle): full opacity, soft glow border (coral).
-- Memo-day −1 to −7: 90% opacity, no glow.
-- Memo-day −8 or older: 70% opacity.
-- **"Jump to today"** FAB pans+zooms to the centroid of items where `memo_day(created_at) = memo_day(now())`. If none, falls back to current viewport center.
-- Optional filter chip row: `Today / This week / All` — fades non-matching items to 15%. "Today" = current memo-day; "This week" = memo-day −0 to −6.
+- Current memo-day items: 4px coral outline, full opacity.
+- Older items: full opacity (day-opacity fade was removed — context already obvious from canvas position).
+- **Jump-to-today** chip (top-left, doubles as `TodayAnchor`) computes bbox of today's items and animates a `FIT` (pan + zoom). Empty today → centers at zoom 1.
 
-**Note placement.**
-- Double-tap empty canvas → new note at tap point, autofocused for typing.
-- Drag to reposition (only own notes — author check client-side).
-- Long-press → menu: color, delete (only on own).
-- Partner's notes: **read-only**. No reactions in v1. Reserved as v2 polish.
+**Chrome surfaces (canvas page).**
+- Topbar: `memo` brand left, state-driven center chip (countdown ↔ today-reveal CTA), archive icon, `zen` button.
+- TodayAnchor: top-left pill — coral star + date + today count. Tap → fit today.
+- MiniMap: top-right, **only when `zoom < 0.15`** — read-only orientation widget. Items as colored dots + coral viewport rectangle. Hidden when canvas empty.
+- ZoomControls: mid-right vertical — `+ / − / FIT / %`.
+- FAB bar: bottom-center horizontal — camera, primary `+` note (larger coral), song.
 
-**Card types on the canvas:**
-- `note` — text content.
-- `photo` (pinned) — image thumbnail card, tap to open full-size.
-- `song` (pinned) — mini Spotify embed card.
-
-All three render in the same canvas-space coord system. Pin/unpin is a per-item toggle from the gallery.
+**Zen mode.** Tap the `zen` button in topbar → all chrome hides except a small `✕` exit pill (top-right) and a faded zoom bar at the bottom (`− / FIT / +`). Cards become non-interactive (`interactive={!zen}`). Canvas pan still works.
 
 ---
 
@@ -244,10 +251,13 @@ All three render in the same canvas-space coord system. Pin/unpin is a per-item 
 1. Tap camera FAB.
 2. Native picker via `<input capture="environment">` → user takes a shot or picks from camera roll.
 3. Client resizes to max 2048px long edge, JPEG quality 0.85 (saves storage).
-4. `POST /api/photos/upload` (multipart) → server uploads to `photos/{yyyy-mm-dd}/{photo_id}.jpg` and inserts the `photos` row.
-5. **Pre-reveal UI:** photo shows as a locked thumbnail — count + "🔒 reveals at 21:00". Neither device fetches the image bytes.
-6. **At reveal hour:** photos for that day become viewable. A "Today's reveal" entry point opens a feed of that day's photos.
-7. **Post-reveal:** photos live in a per-day gallery (`/gallery/[date]`). Each photo has a **"Pin to canvas"** action — places a card on the canvas at the current viewport center, sets `pinned_x/y` on the row.
+4. Client also generates a 256px square-cropped thumb (`lib/image/thumbnail.ts`).
+5. `POST /api/photos/upload` (multipart, both blobs + author) → server uploads to `photos/{memo-day}/{photo_id}.jpg` and `..._thumb.jpg`, then inserts the row. Rollback on partial failure.
+6. **Pre-reveal UI:** photo shows in `LockedRoll` sheet (tap countdown chip in topbar). Tile renders a black film backdrop with halftone + diagonal hatch + coral lock icon + time stamp. State endpoint returns `locked: true` with no URLs.
+7. **At reveal hour:** server starts emitting signed URLs (`thumb_url`, `full_url`). The topbar's center chip flips from countdown → coral `today · N →`.
+8. **RevealSheet** (tap the today chip): grid of all photos revealed in the last 24h. Pinned tiles stay visible alongside unpinned (toggle between pin / unpin actions per tile). Hero: `tonight.` Caprasimo + scattered SVG sparkles + author tally.
+9. **Pin a photo** → `pinned_x/y/rotation/at` set on row; appears on canvas as `PhotoCard`. **Unpin** clears only `pinned_at` — `pinned_x/y` preserved so a re-pin restores last position.
+10. **Archive** view (`ArchiveSheet`, opened via topbar icon): tabs `PHOTOS / SONGS`, filter `ALL / EMO / MAGI`, day-by-day grouped grid. Tap a photo → opens `PhotoViewer` full-screen.
 
 **Reveal time computed server-side** via trigger, using the canonical `memo_day()` function from §4:
 
@@ -281,12 +291,12 @@ create trigger photos_set_reveal_at
 
 **Decision:** Spotify Web API (Client Credentials, server-side) for search + Spotify Embed iframe for playback. No per-user OAuth.
 
-- Server route `POST /api/spotify/search?q=...` — searches Spotify, returns top 10 tracks. Token cached server-side (3600s lifetime, refresh on miss).
-- User picks a track → server route `POST /api/songs` inserts the row; trigger stamps `memo_day` from `created_at` (see §4).
-- One song per author per memo-day (`unique (author, memo_day)`). Replace today's pick by re-picking — the unique index makes the second insert an upsert from app code.
+- Server route `GET /api/spotify/search?q=...` — proxies Spotify search, returns top 10 tracks. Token cached server-side (3600s lifetime, refresh on miss / 401).
+- User picks a track → `SongPicker` modal fires `POST /api/songs` with optional `pin: { x, y, rotation }` (default: viewport center). Trigger stamps `memo_day` from `created_at` (see §4).
+- **One song per author per memo-day, server-enforced.** `POST /api/songs` checks for existing `(author, memo_day)` and returns **HTTP 409** if found — no replace. Client mirrors this: `SongPicker` renders a locked state ("today's pick · locked in") when `todaysOwnSong` exists; no search input.
 - **Always visible immediately on add** — no reveal gate.
-- Playback: `<iframe src="https://open.spotify.com/embed/track/{id}" allow="encrypted-media">`. 30s preview for non-Spotify users; full track for Spotify users.
-- **Pin to canvas:** same as photos — toggle from the song's row in the song log to drop a card on the canvas.
+- Playback: **lazy** `<iframe src="https://open.spotify.com/embed/track/{id}">`. Default render = static album art + coral ▶ button. Iframe only mounts on tap; auto-unmounts when card leaves tier 0 (zoomed out) or enters drag mode.
+- **Pin to canvas:** songs auto-pin at viewport center on initial pick. Long-press to move. Tap album art for inline embed.
 
 **Env vars (server-only):** `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`.
 
@@ -318,21 +328,39 @@ This is the integration between the gallery/log views and the canvas.
 
 No client-side Supabase, so no Realtime. Instead:
 
-- Each screen polls a single server action `GET /api/state?since={ts}` every **3 seconds while visible**, paused when tab is hidden (`visibilitychange`).
-- Server returns rows changed since `ts` across `notes`, `photos`, `songs`, plus the current server time.
-- Client merges by `id`, applying inserts/updates/deletes. Optimistic local writes get reconciled on next poll.
+- Each screen polls a single server route `GET /api/state?since={ts}` every **3 seconds while visible**, paused when tab is hidden (`visibilitychange`).
+- Server returns:
+  - Notes whose `updated_at > since` (delta).
+  - All photos (small volume), with `locked: true | false`. Revealed photos include `thumb_url` + `full_url`.
+  - All songs (small volume).
+  - Current server time (next `since` cursor).
+- Client merges by `id`, applying inserts/updates. Optimistic local writes get reconciled on next poll.
 - Bandwidth: trivial. 2 users, polling 3s = ~2 req/min/device when active.
 
-**Phase 2 option:** swap polling for SSE (`/api/stream`) from Next.js to push instead of pull. Same data shape. Defer.
+**Signed URL caching.** Each `/api/state` call previously minted fresh Supabase signed URLs per photo, which changed every poll and caused image re-fetch flicker. Server now keeps a module-scope `Map<photoId, { thumbUrl, fullUrl, expiresAt }>` with **55-minute TTL** (5 min leeway under Supabase's 1-hour signed-URL lifetime). Same URL string returned across polls → browser HTTP-caches the image → no flicker.
+
+**Phase 6 option:** swap polling for SSE (`/api/stream`) from Next.js to push instead of pull. Same data shape. Defer.
 
 ---
 
 ## 11. PWA Specifics
 
-- `manifest.json`: `name: "memo"`, `display: standalone`, `theme_color`, `background_color`, full icon set (192, 512, maskable).
-- iOS: `apple-touch-icon`, `apple-mobile-web-app-capable=yes`, `apple-mobile-web-app-status-bar-style=black-translucent`, splash screens for common iPhone sizes.
-- Service worker: precache app shell + last-known canvas snapshot for offline viewing. Writes go through normal fetch (fail offline; queue in v2).
-- "Add to Home Screen" hint shown once on first session post-passphrase.
+Uses Next 13+ icon + manifest conventions; no third-party PWA lib.
+
+- **`app/manifest.ts`** — typed `MetadataRoute.Manifest`. `start_url: /canvas`, `display: standalone`, `theme_color: #181615`, `background_color: #F2E8D5`, `orientation: portrait`. Icon entries reference the dynamic routes below (`/icon`, `/icon1` — including `purpose: maskable` for the 512px — and `/apple-icon`). Served at `/manifest.webmanifest`.
+- **`app/icon.tsx`** — 192×192 PNG via `next/og` `ImageResponse`. Paper bg + coral `m` (Georgia serif fallback; Caprasimo embed via base64 woff2 is a Phase 6 polish).
+- **`app/icon1.tsx`** — 512×512 PNG. Coral bg + paper `m`. Doubles as maskable.
+- **`app/apple-icon.tsx`** — 180×180 PNG for iOS home-screen.
+- **`app/layout.tsx` metadata**:
+  - `appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "memo" }`
+  - `formatDetection: { telephone: false, email: false, address: false, date: false }` — prevents iOS auto-linking dates / numbers inside note bodies.
+- **Proxy allowlist** — `proxy.ts` permits `/manifest.webmanifest`, `/icon`, `/icon1`, `/apple-icon` through without the passphrase cookie so they're fetchable for the install prompt.
+- **`components/InstallHint.tsx`** — iOS-only one-time banner: "tap ⬆ then add to home screen." Hidden after first dismiss (`localStorage.memo_install_dismissed`). Suppressed when already in `display-mode: standalone` (i.e. installed).
+
+**Not yet implemented** (Phase 6 backlog):
+- Service worker for app-shell offline cache.
+- iOS splash screens (per-device).
+- Real Caprasimo glyph in icons (currently Georgia serif fallback).
 
 ---
 
@@ -354,48 +382,50 @@ No client-side Supabase, so no Realtime. Instead:
 
 ## 13. Build Phases
 
-**Phase 1 — Foundation.**
-- Next.js scaffold, Tailwind, Supabase project, schema + trigger migration.
-- Passphrase gate (server action + signed cookie + middleware).
-- Device "self" picker on first launch.
-- "Hello world" canvas with one hardcoded note.
+**Phase 1 — Foundation. ✓ Shipped.**
+- Next.js scaffold, Tailwind v4, Supabase schema + `memo_day()` function + photo/song triggers.
+- Passphrase gate (numpad UI, HMAC-signed cookie via Web Crypto, `proxy.ts` middleware).
+- Device "self" picker on first launch (emo / magi).
+- Canvas page shell.
 
-**Phase 2 — Canvas + notes (with perf baked in).**
-- Pan/zoom viewport.
-- **Spatial index** (1000×1000 grid map) + **viewport culling** with 20% margin.
-- **LOD renderer** (full / simplified / dot tiers, zoom-driven).
-- **CSS `contain: content`** on every card; `will-change: transform` only during active drag.
-- **IndexedDB cache** of fetched rows; cold boot reads cache first, then polls deltas.
-- Sticky note CRUD (create, drag, edit own, delete own).
-- Day-based opacity + "Jump to today".
-- Polling sync (`since=ts`).
+**Phase 2 — Canvas + notes (perf baked in). ✓ Shipped.**
+- Pan via `@use-gesture/react`; wheel zoom RAF-coalesced + clamped; pinch zoom disabled.
+- Spatial index (1000-unit grid) + viewport culling with 20% margin.
+- LOD renderer (full / simplified / minimal tiers, footprint preserved across tiers).
+- `contain: content` on every card; `will-change: transform` only during active drag.
+- IndexedDB cache (`idb`) of notes/photos/songs/meta.
+- Sticky note create (FAB → composer at viewport center), long-press 600ms to drag own (drift-through-card pans canvas instead). Delete removed per UX call.
+- Coral today-halo via memo-day grouping.
+- 3-second polling with `since` cursor.
 
-**Phase 3 — Camera (with perf baked in).**
-- Photo capture + client resize.
-- **Thumbnail generation on upload** — 256px thumb + full-res, both to Storage. Canvas/gallery cards load thumb only; tap fetches full.
-- Reveal trigger + locked/unlocked rendering.
-- Per-day gallery view.
-- Pin-photo-to-canvas.
+**Phase 3 — Camera (perf baked in). ✓ Shipped.**
+- `<input capture>` flow, client 2048px resize + 256 thumb, multipart upload to Supabase Storage.
+- Reveal trigger (Postgres `set_photo_reveal_at` → next 21:00 boundary).
+- `LockedRoll` sheet (artefact 02), `RevealSheet` (artefact 03, with persistent pinned tiles + unpin toggle), `ArchiveSheet` (artefact 04 with PHOTOS/SONGS tabs + author filter).
+- Pin / unpin / move with **coord persistence on unpin** so re-pin restores last position.
 
-**Phase 4 — Song of the day (with perf baked in).**
-- Spotify search route + token cache.
-- Song picker UI.
-- Song log view.
-- **Lazy Spotify embed** — card renders static album art + play button; iframe mounts only on tap, unmounts when card scrolls/zooms off-screen.
-- Pin-song-to-canvas.
+**Phase 4 — Song of the day (perf baked in). ✓ Shipped.**
+- Spotify Client Credentials token cache + `/api/spotify/search` proxy.
+- `SongPicker` with debounced search (300ms) + locked state when today's pick already exists.
+- **One-per-day enforced server-side** (409 on duplicate).
+- Lazy Spotify embed — static art + ▶ button by default; iframe only mounts on tap and auto-unmounts when card leaves LOD tier 0 or enters drag.
+- Auto-pin at viewport center on initial pick.
 
-**Phase 5 — PWA polish.**
-- Manifest + icons + iOS splash.
-- Service worker shell cache.
-- Install prompt.
+**Phase 5 — PWA polish. ✓ Shipped.**
+- `app/manifest.ts`, dynamic icons (192 / 512 / 512-maskable / 180 apple).
+- `appleWebApp` meta, `formatDetection` off.
+- `InstallHint` iOS one-time banner.
 
-**Phase 6 — Nice-to-haves (deferred).**
-- Reactions on partner's notes.
-- Push notifications at reveal hour.
-- Offline write queue.
-- SSE replacing polling.
-- **Spatial server fetch** (`?bbox=...`) once cold-load JSON >2MB.
-- **Bulk canvas rearrangement** — multi-select, lasso, move groups, reposition partner's items. Per-item drag of own items stays in Phase 2. This is the harder version at scale where many items overlap and tooling needs care (group select, snap, undo).
+**Phase 6 — Backlog (deferred).**
+- **Service worker offline shell** — precache app shell + cache last-known canvas state from IndexedDB so the app boots cold offline.
+- **Push notifications at 21:00** — web-push API + permission flow on first reveal cycle. iOS Safari supports PWA push since 16.4.
+- **SSE replacing polling** — `/api/stream` from Next.js. Lower latency, no functional gain at 2 users; revisit if Supabase query count becomes a cost issue.
+- **Spatial server fetch** — `GET /api/state?bbox=x1,y1,x2,y2&since=ts` with GiST index on a `point` column. Apply when cold-load JSON > 2 MB or DB rows > 50k.
+- **Bulk canvas rearrangement** — multi-select, lasso, group move, reposition partner's items. Current per-item long-press drag stays in Phase 2.
+- **Reactions on partner notes** — emoji badge on partner's notes; per-user pick.
+- **Real iPhone perf test** against §14.5 acceptance targets: cold boot < 800 ms, 60 fps pan @ 25k items, < 150 MB RSS. Not yet validated on a real device with realistic content volume.
+- **Proper Caprasimo icon** — base64-embed the woff2 font in the `ImageResponse` JSX style so the `m` glyph uses the real display font (currently Georgia serif fallback).
+- **Custom domain** — replace Vercel subdomain.
 
 ---
 
@@ -476,46 +506,67 @@ Canvas grows forever. Girlfriend takes many photos. Plan for ~25k cards over 5 y
 ```
 memo/
 ├─ app/
-│  ├─ (gated)/              # routes behind passphrase
-│  │  ├─ canvas/page.tsx
-│  │  ├─ gallery/[date]/page.tsx
-│  │  ├─ songs/page.tsx
-│  │  └─ settings/page.tsx
-│  ├─ passphrase/page.tsx   # gate
-│  ├─ api/
-│  │  ├─ session/route.ts          # set/clear session cookie
-│  │  ├─ state/route.ts            # poll endpoint
-│  │  ├─ notes/route.ts            # CRUD
-│  │  ├─ photos/upload/route.ts
-│  │  ├─ photos/[id]/route.ts      # pin/unpin/move/delete
-│  │  ├─ photos/[id]/signed/route.ts
-│  │  ├─ songs/route.ts
-│  │  └─ spotify/search/route.ts
-│  ├─ middleware.ts          # cookie check
-│  └─ layout.tsx
+│  ├─ layout.tsx                       # root layout, fonts, viewport, apple meta
+│  ├─ page.tsx                         # redirect → /canvas
+│  ├─ globals.css                      # design tokens + Tailwind @theme
+│  ├─ manifest.ts                      # PWA manifest (MetadataRoute)
+│  ├─ icon.tsx                         # 192×192 dynamic PNG
+│  ├─ icon1.tsx                        # 512×512 dynamic PNG (+ maskable)
+│  ├─ apple-icon.tsx                   # 180×180 apple-touch-icon
+│  ├─ passphrase/page.tsx              # numpad gate
+│  ├─ canvas/page.tsx                  # mounts <CanvasClient/>
+│  └─ api/
+│     ├─ session/route.ts              # POST set / DELETE clear signed cookie
+│     ├─ state/route.ts                # poll endpoint (notes/photos/songs)
+│     ├─ notes/route.ts                # GET list, POST create
+│     ├─ notes/[id]/route.ts           # PATCH move/edit
+│     ├─ photos/upload/route.ts        # multipart upload (full + thumb)
+│     ├─ photos/[id]/route.ts          # PATCH pin/unpin/move/caption
+│     ├─ songs/route.ts                # POST upsert today's song (409 if exists)
+│     ├─ songs/[id]/route.ts           # PATCH pin/unpin/move
+│     └─ spotify/search/route.ts       # GET search via cached Client Credentials
+├─ proxy.ts                            # auth middleware (Next 16 calls it "proxy")
 ├─ components/
-│  ├─ canvas/Viewport.tsx
-│  ├─ canvas/StickyNote.tsx
-│  ├─ canvas/PhotoCard.tsx
-│  ├─ canvas/SongCard.tsx
-│  ├─ camera/CaptureButton.tsx
-│  ├─ gallery/PhotoTile.tsx
-│  └─ songs/SongPicker.tsx
+│  ├─ SelfPicker.tsx                   # emo/magi first-launch modal
+│  ├─ InstallHint.tsx                  # iOS "add to home screen" banner
+│  ├─ canvas/
+│  │  ├─ CanvasClient.tsx              # main orchestrator
+│  │  ├─ TopBar.tsx                    # brand + state chip + archive + zen
+│  │  ├─ TodayAnchor.tsx               # top-left jump-to-today pill
+│  │  ├─ MiniMap.tsx                   # display-only orientation (zoom < 15%)
+│  │  ├─ ZoomControls.tsx              # mid-right +/−/FIT/%
+│  │  ├─ ZenZoomBar.tsx                # faded zoom bar visible only in zen
+│  │  ├─ ZenExit.tsx                   # zen mode exit pill
+│  │  ├─ Fabs.tsx                      # camera | + note | song
+│  │  ├─ StickyNote.tsx                # long-press to drag
+│  │  ├─ PhotoCard.tsx                 # pinned photo on canvas
+│  │  ├─ SongCard.tsx                  # pinned song, lazy iframe
+│  │  ├─ PhotoViewer.tsx               # full-screen photo modal
+│  │  ├─ RevealSheet.tsx               # "tonight." reveal feed
+│  │  ├─ NoteComposer.tsx              # inline new-note textarea + color
+│  │  └─ PendingPill.tsx               # (legacy; unused since topbar chip)
+│  ├─ camera/
+│  │  └─ LockedRoll.tsx                # pre-reveal pending grid
+│  ├─ archive/
+│  │  └─ ArchiveSheet.tsx              # tabs + filter + day grids
+│  └─ song/
+│     └─ SongPicker.tsx                # Spotify search + locked state
 ├─ lib/
-│  ├─ supabase/server.ts        # service-role client
-│  ├─ session/cookie.ts         # HMAC sign/verify
-│  ├─ memo-day.ts               # client mirror of Postgres memo_day()
-│  ├─ spotify/client.ts         # token cache + search
-│  ├─ canvas/transform.ts       # pan/zoom math
-│  ├─ canvas/spatial-index.ts   # grid map, O(visible cells) lookup
-│  ├─ canvas/lod.ts             # zoom → tier resolver
-│  ├─ cache/indexeddb.ts        # idb-backed row cache
-│  ├─ image/resize.ts           # client compression
-│  └─ image/thumbnail.ts        # 256px thumb generator
+│  ├─ supabase/server.ts               # cached service-role client
+│  ├─ session/cookie.ts                # Web Crypto HMAC sign/verify
+│  ├─ memo-day.ts                      # client mirror + minutesUntilNextReveal
+│  ├─ self/useSelf.ts                  # useSyncExternalStore over localStorage
+│  ├─ spotify/client.ts                # token cache + search
+│  ├─ canvas/usePanZoom.ts             # @use-gesture wrapper + animateTo
+│  ├─ canvas/spatial-index.ts          # grid map
+│  ├─ canvas/lod.ts                    # zoom → tier resolver
+│  ├─ cache/indexeddb.ts               # idb wrapper (v3 schema)
+│  ├─ camera/useCapture.tsx            # capture hook with hidden input
+│  ├─ image/resize.ts                  # client compression
+│  ├─ image/thumbnail.ts               # 256px thumb generator
+│  └─ types.ts                         # Author, Note, Photo, Song, SpotifyTrack
 ├─ supabase/migrations/
-│  └─ 0001_init.sql
-├─ public/
-│  ├─ manifest.json
-│  └─ icons/
+│  └─ 0001_init.sql                    # schema + memo_day fn + triggers
+├─ design/                             # HTML mood boards (00-04)
 └─ tech-spec.md
 ```

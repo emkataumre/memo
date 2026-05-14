@@ -12,11 +12,17 @@ import type { Note, Photo, Song } from "@/lib/types";
 // are dropped. `onResync` fires on initial SUBSCRIBED and on every
 // reconnect; callers should refetch a fresh snapshot there.
 
+// Mirrors the Supabase-JS status strings we care about. We collapse
+// everything that isn't `SUBSCRIBED` into a single "connecting" mode
+// so the UI doesn't need to reason about transient distinctions.
+export type ConnectionStatus = "connecting" | "connected";
+
 export interface CanvasHandlers {
   onNote: (payload: RealtimePostgresChangesPayload<Note>) => void;
   onPhoto: (payload: RealtimePostgresChangesPayload<Photo>) => void;
   onSong: (payload: RealtimePostgresChangesPayload<Song>) => void;
   onResync: () => void | Promise<void>;
+  onStatus?: (status: ConnectionStatus) => void;
 }
 
 const TOPIC = "memo_canvas";
@@ -53,7 +59,13 @@ export async function subscribeCanvas(
     )
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
+        handlers.onStatus?.("connected");
         void handlers.onResync();
+      } else {
+        // CHANNEL_ERROR / TIMED_OUT / CLOSED — Supabase JS auto-reconnects
+        // with exponential backoff; we just surface the "not green" state
+        // so the UI can show a reconnect toast.
+        handlers.onStatus?.("connecting");
       }
     });
 

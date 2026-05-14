@@ -1,26 +1,48 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f2e8d5;
+  --paper-deep: #eadcbf;
+  --ink: #181615;
+  --ink-deep: #0e0c0b;
+  --ink-soft: #4a453e;
+  --lemon: #f4d03f;
+  --pink: #ff6fa8;
+  --sky: #6ec1ff;
+  --mint: #8fe0a8;
+  --coral: #ff5c39;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-ink-deep: var(--ink-deep);
+  --color-ink-soft: var(--ink-soft);
+  --color-lemon: var(--lemon);
+  --color-pink: var(--pink);
+  --color-sky: var(--sky);
+  --color-mint: var(--mint);
+  --color-coral: var(--coral);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-pixel: var(--font-pixel);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  background-image: radial-gradient(
+    circle,
+    rgba(24, 22, 21, 0.07) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
 }

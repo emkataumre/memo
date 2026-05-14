@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Note, NoteColor, NoteVariant } from "@/lib/types";
 import type { LodTier } from "@/lib/canvas/lod";
 
@@ -50,7 +50,7 @@ interface Props {
 
 type Phase = "idle" | "armed" | "dragging";
 
-export default function StickyNote({
+function StickyNote({
   note,
   isOwn,
   isToday,
@@ -307,6 +307,8 @@ export default function StickyNote({
           dragging ? "scale(1.04)" : ""
         }`,
         contain: "content",
+        contentVisibility: "auto",
+        containIntrinsicSize: `auto ${renderWidth}px ${renderHeight}px`,
         willChange: dragging || resizing ? "transform, width, height" : undefined,
         touchAction: "none",
         zIndex: dragging || resizing ? 50 : undefined,
@@ -485,6 +487,8 @@ export default function StickyNote({
     </div>
   );
 }
+
+export default memo(StickyNote);
 
 function formatStamp(iso: string): string {
   const d = new Date(iso);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { usePanZoom, zoomAtPoint } from "@/lib/canvas/usePanZoom";
 import { lodFromZoom } from "@/lib/canvas/lod";
 import { SpatialIndex } from "@/lib/canvas/spatial-index";
@@ -10,10 +9,7 @@ import {
   cacheLoadNotes,
   cacheUpsertNote,
   cacheLoadPhotos,
-  cacheUpsertPhoto,
   cacheLoadSongs,
-  cacheUpsertSong,
-  cacheDelete,
   cacheReplaceAll,
 } from "@/lib/cache/indexeddb";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
@@ -21,6 +17,12 @@ import { subscribeCanvas } from "@/lib/supabase/realtime";
 import { subscribePresence } from "@/lib/supabase/presence";
 import { isLocked } from "@/lib/photos/derive";
 import { signCache } from "@/lib/photos/sign-cache";
+import { notesStore, photosStore, songsStore } from "@/lib/canvas/stores";
+import {
+  useNotes,
+  usePhotos,
+  useSongs,
+} from "@/lib/canvas/use-canvas-stores";
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
 import SelfPicker from "@/components/SelfPicker";
@@ -69,42 +71,11 @@ function randomRotation(): number {
   return (Math.random() - 0.5) * 10;
 }
 
-// Snapshot/live-event reconciler. `stamps` tracks the most recent live
-// event for each id, so a snapshot that pre-dates a live update doesn't
-// clobber the newer state.
-function mergeRows<T extends { id: string }>(
-  table: string,
-  prev: T[],
-  snapshot: T[],
-  snapshotTs: number,
-  stamps: Map<string, number>,
-): T[] {
-  const prevById = new Map(prev.map((r) => [r.id, r]));
-  const snapIds = new Set(snapshot.map((r) => r.id));
-  const out: T[] = [];
-  for (const row of snapshot) {
-    const localTs = stamps.get(`${table}:${row.id}`) ?? 0;
-    if (prevById.has(row.id) && localTs >= snapshotTs) {
-      out.push(prevById.get(row.id)!);
-    } else {
-      out.push(row);
-    }
-  }
-  for (const row of prev) {
-    if (snapIds.has(row.id)) continue;
-    const localTs = stamps.get(`${table}:${row.id}`) ?? 0;
-    // Row not in snapshot. Keep only if a live event after the snapshot
-    // re-inserted it; otherwise treat snapshot as authoritative deletion.
-    if (localTs >= snapshotTs) out.push(row);
-  }
-  return out;
-}
-
 export default function CanvasClient() {
   const self = useSelf();
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [songs, setSongs] = useState<Song[]>([]);
+  const notes = useNotes();
+  const photos = usePhotos();
+  const songs = useSongs();
   const [songPickerOpen, setSongPickerOpen] = useState(false);
   const [rollOpen, setRollOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -143,26 +114,6 @@ export default function CanvasClient() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // Live state mirrored to refs so the snapshot reconciler can read
-  // current values without waiting for a render cycle.
-  const notesRef = useRef<Note[]>([]);
-  const photosRef = useRef<Photo[]>([]);
-  const songsRef = useRef<Song[]>([]);
-  useEffect(() => {
-    notesRef.current = notes;
-  }, [notes]);
-  useEffect(() => {
-    photosRef.current = photos;
-  }, [photos]);
-  useEffect(() => {
-    songsRef.current = songs;
-  }, [songs]);
-
-  // Per-row timestamps of the most recent live event. Used by the
-  // snapshot merger to detect updates that arrived after the snapshot
-  // was serialized server-side.
-  const lastEventTsRef = useRef<Map<string, number>>(new Map());
 
   // Bumped when a reveal boundary passes so the locked → revealed
   // derivations recompute even though no DB row changed.
@@ -220,84 +171,6 @@ export default function CanvasClient() {
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
-    function applyNoteEvent(
-      payload: RealtimePostgresChangesPayload<Note>,
-    ): void {
-      const ts = Date.now();
-      if (payload.eventType === "DELETE") {
-        const id = (payload.old as Partial<Note>).id;
-        if (!id) return;
-        lastEventTsRef.current.set(`notes:${id}`, ts);
-        setNotes((prev) => prev.filter((n) => n.id !== id));
-        void cacheDelete("notes", id);
-        return;
-      }
-      const row = payload.new as Note;
-      lastEventTsRef.current.set(`notes:${row.id}`, ts);
-      // Touch = top: move (or insert) at the end of the array so the
-      // most recently changed note stacks above older siblings.
-      setNotes((prev) => [...prev.filter((n) => n.id !== row.id), row]);
-      void cacheUpsertNote(row);
-    }
-
-    function applyPhotoEvent(
-      payload: RealtimePostgresChangesPayload<Photo>,
-    ): void {
-      const ts = Date.now();
-      if (payload.eventType === "DELETE") {
-        const id = (payload.old as Partial<Photo>).id;
-        if (!id) return;
-        lastEventTsRef.current.set(`photos:${id}`, ts);
-        signCache.evict(id);
-        setPhotos((prev) => prev.filter((p) => p.id !== id));
-        void cacheDelete("photos", id);
-        return;
-      }
-      const row = payload.new as Photo;
-      lastEventTsRef.current.set(`photos:${row.id}`, ts);
-      // INSERT: row is locked at upload time; sign-cache will resolve
-      //   once it crosses reveal_at.
-      // UPDATE: pin/move/caption updates don't change storage_path,
-      //   so cached URLs (if any) stay valid.
-      if (!isLocked(row)) signCache.ensureMany([row.id]);
-      setPhotos((prev) => {
-        const idx = prev.findIndex((p) => p.id === row.id);
-        if (idx >= 0) {
-          const copy = prev.slice();
-          copy[idx] = row;
-          return copy;
-        }
-        return [...prev, row];
-      });
-      void cacheUpsertPhoto(row);
-    }
-
-    function applySongEvent(
-      payload: RealtimePostgresChangesPayload<Song>,
-    ): void {
-      const ts = Date.now();
-      if (payload.eventType === "DELETE") {
-        const id = (payload.old as Partial<Song>).id;
-        if (!id) return;
-        lastEventTsRef.current.set(`songs:${id}`, ts);
-        setSongs((prev) => prev.filter((s) => s.id !== id));
-        void cacheDelete("songs", id);
-        return;
-      }
-      const row = payload.new as Song;
-      lastEventTsRef.current.set(`songs:${row.id}`, ts);
-      setSongs((prev) => {
-        const idx = prev.findIndex((s) => s.id === row.id);
-        if (idx >= 0) {
-          const copy = prev.slice();
-          copy[idx] = row;
-          return copy;
-        }
-        return [...prev, row];
-      });
-      void cacheUpsertSong(row);
-    }
-
     async function resync(): Promise<void> {
       if (cancelled) return;
       const snapshotTs = Date.now();
@@ -317,31 +190,18 @@ export default function CanvasClient() {
         return;
       }
 
-      const mergedNotes = mergeRows(
-        "notes",
-        notesRef.current,
+      const mergedNotes = notesStore.merge(
         (nRows ?? []) as Note[],
         snapshotTs,
-        lastEventTsRef.current,
       );
-      const mergedPhotos = mergeRows(
-        "photos",
-        photosRef.current,
+      const mergedPhotos = photosStore.merge(
         (pRows ?? []) as Photo[],
         snapshotTs,
-        lastEventTsRef.current,
       );
-      const mergedSongs = mergeRows(
-        "songs",
-        songsRef.current,
+      const mergedSongs = songsStore.merge(
         (sRows ?? []) as Song[],
         snapshotTs,
-        lastEventTsRef.current,
       );
-
-      setNotes(mergedNotes);
-      setPhotos(mergedPhotos);
-      setSongs(mergedSongs);
       setResyncCount((n) => n + 1);
 
       const revealedIds = mergedPhotos
@@ -360,15 +220,24 @@ export default function CanvasClient() {
         signCache.hydrate(),
       ]);
       if (cancelled) return;
-      if (cachedNotes.length) setNotes(cachedNotes);
-      if (cachedPhotos.length) setPhotos(cachedPhotos);
-      if (cachedSongs.length) setSongs(cachedSongs);
+      // Only seed stores from cache when they're empty — module-scope
+      // stores survive route navigation, so a /jar → /canvas hop should
+      // not clobber the live in-memory state with a stale IDB load.
+      if (cachedNotes.length && notesStore.getSnapshot().length === 0) {
+        notesStore.replaceAll(cachedNotes);
+      }
+      if (cachedPhotos.length && photosStore.getSnapshot().length === 0) {
+        photosStore.replaceAll(cachedPhotos);
+      }
+      if (cachedSongs.length && songsStore.getSnapshot().length === 0) {
+        songsStore.replaceAll(cachedSongs);
+      }
 
       try {
         unsubscribe = await subscribeCanvas({
-          onNote: applyNoteEvent,
-          onPhoto: applyPhotoEvent,
-          onSong: applySongEvent,
+          onNote: notesStore.apply,
+          onPhoto: photosStore.apply,
+          onSong: songsStore.apply,
           onResync: resync,
           onStatus: (status) => {
             if (cancelled) return;
@@ -408,12 +277,13 @@ export default function CanvasClient() {
             ? result.item.meta.tempId
             : null;
         if (real && tempId) {
-          setNotes((prev) => {
+          notesStore.update((prev) => {
             // Drop any real-id row that may have arrived via realtime
             // already, then swap the tempId entry for the real one.
             const withoutDup = prev.filter((n) => n.id !== real.id);
             return withoutDup.map((n) => (n.id === tempId ? real : n));
           });
+          notesStore.touch(real.id);
           void cacheUpsertNote(real);
         }
       }
@@ -468,7 +338,8 @@ export default function CanvasClient() {
       timer = setTimeout(() => {
         setRevealTick((t) => t + 1);
         // Photos that just unlocked need signed URLs.
-        const justRevealedIds = photosRef.current
+        const justRevealedIds = photosStore
+          .getSnapshot()
           .filter((p) => !isLocked(p))
           .map((p) => p.id);
         if (justRevealedIds.length > 0) {
@@ -600,7 +471,8 @@ export default function CanvasClient() {
         created_at: now,
         updated_at: now,
       };
-      setNotes((prev) => [...prev, optimistic]);
+      notesStore.update((prev) => [...prev, optimistic]);
+      notesStore.touch(tempId);
 
       const postBody = { author: self, body, color, x, y, rotation, variant };
 
@@ -612,9 +484,14 @@ export default function CanvasClient() {
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = (await res.json()) as { note: Note };
-        setNotes((prev) =>
-          prev.map((n) => (n.id === tempId ? data.note : n)),
-        );
+        // Dedup: realtime echo may have inserted the real id before this
+        // POST awaited. Drop any pre-existing real-id row, then swap the
+        // temp slot.
+        notesStore.update((prev) => {
+          const withoutDup = prev.filter((n) => n.id !== data.note.id);
+          return withoutDup.map((n) => (n.id === tempId ? data.note : n));
+        });
+        notesStore.touch(data.note.id);
         await cacheUpsertNote(data.note);
       } catch {
         // Offline (or server hiccup). Keep the optimistic note visible
@@ -633,7 +510,7 @@ export default function CanvasClient() {
 
   const resizeNote = useCallback(
     async (id: string, width: number, height: number) => {
-      setNotes((prev) => {
+      notesStore.update((prev) => {
         const target = prev.find((n) => n.id === id);
         if (!target) return prev;
         const others = prev.filter((n) => n.id !== id);
@@ -647,6 +524,7 @@ export default function CanvasClient() {
           },
         ];
       });
+      notesStore.touch(id);
       // Temp id: fold the new size into the queued create body so the
       // drain replays at the right dimensions.
       if (id.startsWith("temp-")) {
@@ -689,7 +567,7 @@ export default function CanvasClient() {
   );
 
   const moveNote = useCallback(async (id: string, x: number, y: number) => {
-    setNotes((prev) => {
+    notesStore.update((prev) => {
       // Touch = top: pull the moved note out and reinsert at the end.
       const target = prev.find((n) => n.id === id);
       if (!target) return prev;
@@ -699,6 +577,7 @@ export default function CanvasClient() {
         { ...target, x, y, updated_at: new Date().toISOString() },
       ];
     });
+    notesStore.touch(id);
     // Temp id: the create POST is still queued. Patch its body so the
     // drain replays with the latest coords instead of where the note
     // was originally dropped.
@@ -741,11 +620,13 @@ export default function CanvasClient() {
 
   const movePhoto = useCallback(
     async (id: string, x: number, y: number) => {
-      setPhotos((prev) =>
-        prev.map((p) =>
-          p.id === id ? { ...p, pinned_x: x, pinned_y: y } : p,
-        ),
-      );
+      photosStore.update((prev) => {
+        const target = prev.find((p) => p.id === id);
+        if (!target) return prev;
+        const others = prev.filter((p) => p.id !== id);
+        return [...others, { ...target, pinned_x: x, pinned_y: y }];
+      });
+      photosStore.touch(id);
       try {
         await fetch(`/api/photos/${id}`, {
           method: "PATCH",
@@ -760,9 +641,13 @@ export default function CanvasClient() {
   );
 
   const moveSong = useCallback(async (id: string, x: number, y: number) => {
-    setSongs((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, pinned_x: x, pinned_y: y } : s)),
-    );
+    songsStore.update((prev) => {
+      const target = prev.find((s) => s.id === id);
+      if (!target) return prev;
+      const others = prev.filter((s) => s.id !== id);
+      return [...others, { ...target, pinned_x: x, pinned_y: y }];
+    });
+    songsStore.touch(id);
     try {
       await fetch(`/api/songs/${id}`, {
         method: "PATCH",
@@ -800,10 +685,11 @@ export default function CanvasClient() {
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = (await res.json()) as { song: Song };
-        setSongs((prev) => {
+        songsStore.update((prev) => {
           const without = prev.filter((s) => s.id !== data.song.id);
           return [...without, data.song];
         });
+        songsStore.touch(data.song.id);
       } catch {
         /* reconcile next poll */
       }
@@ -828,19 +714,22 @@ export default function CanvasClient() {
         : (rect.height / 2 - viewport.y) / viewport.zoom;
       const rotation = hasPrior ? photo.pinned_rotation : randomRotation();
 
-      setPhotos((prev) =>
-        prev.map((p) =>
-          p.id === photo.id
-            ? {
-                ...p,
-                pinned_x: cx,
-                pinned_y: cy,
-                pinned_rotation: rotation,
-                pinned_at: new Date().toISOString(),
-              }
-            : p,
-        ),
-      );
+      photosStore.update((prev) => {
+        const target = prev.find((p) => p.id === photo.id);
+        if (!target) return prev;
+        const others = prev.filter((p) => p.id !== photo.id);
+        return [
+          ...others,
+          {
+            ...target,
+            pinned_x: cx,
+            pinned_y: cy,
+            pinned_rotation: rotation,
+            pinned_at: new Date().toISOString(),
+          },
+        ];
+      });
+      photosStore.touch(photo.id);
       try {
         await fetch(`/api/photos/${photo.id}`, {
           method: "PATCH",
@@ -861,9 +750,13 @@ export default function CanvasClient() {
 
   const unpinPhoto = useCallback(async (photo: Photo) => {
     // Keep coords so a re-pin restores position; only clear pinned_at.
-    setPhotos((prev) =>
-      prev.map((p) => (p.id === photo.id ? { ...p, pinned_at: null } : p)),
-    );
+    photosStore.update((prev) => {
+      const target = prev.find((p) => p.id === photo.id);
+      if (!target) return prev;
+      const others = prev.filter((p) => p.id !== photo.id);
+      return [...others, { ...target, pinned_at: null }];
+    });
+    photosStore.touch(photo.id);
     try {
       await fetch(`/api/photos/${photo.id}`, {
         method: "PATCH",

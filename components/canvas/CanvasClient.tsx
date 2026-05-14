@@ -18,7 +18,6 @@ import {
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
 import SelfPicker from "@/components/SelfPicker";
-import InstallHint from "@/components/InstallHint";
 import TopBar from "./TopBar";
 import TodayAnchor from "./TodayAnchor";
 import StickyNote from "./StickyNote";
@@ -608,7 +607,6 @@ export default function CanvasClient() {
   return (
     <>
       <SelfPicker />
-      {!zen && <InstallHint />}
       {!zen && (
         <TopBar
           onEnterZen={() => setZen(true)}

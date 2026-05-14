@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# spec stays local — too detailed for public repo
+tech-spec.md
+
 # vercel
 .vercel
 

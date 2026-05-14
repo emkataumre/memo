@@ -54,7 +54,9 @@ export default function ArchiveSheet({
   const [filter, setFilter] = useState<Filter>("all");
 
   const revealedPhotos = useMemo(
-    () => photos.filter((p) => !isLocked(p)),
+    // Hide date-bound photos from the general archive grid — they
+    // belong under their date entry in the (forthcoming) dates section.
+    () => photos.filter((p) => p.date_idea_id === null && !isLocked(p)),
     [photos],
   );
   usePhotoUrlPrefetch(revealedPhotos.map((p) => p.id));

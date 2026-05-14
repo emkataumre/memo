@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   const thumb = form.get("thumb");
   const author = form.get("author");
   const caption = form.get("caption");
+  const dateIdeaId = form.get("dateIdeaId");
 
   if (!(file instanceof Blob) || !(thumb instanceof Blob)) {
     return NextResponse.json(
@@ -33,10 +34,41 @@ export async function POST(req: Request) {
   }
 
   const supabase = getSupabaseServer();
+
+  // Validate the date binding up-front so we don't waste a Storage
+  // upload on a stale/cancelled idea. We accept ideas in either pending
+  // or completed state — the photo might be uploaded a beat after the
+  // completion call, especially if the user wrote a caption first.
+  let validatedDateIdeaId: string | null = null;
+  if (typeof dateIdeaId === "string" && dateIdeaId.length > 0) {
+    const { data: idea, error: ideaErr } = await supabase
+      .from("date_ideas")
+      .select("id, status")
+      .eq("id", dateIdeaId)
+      .maybeSingle();
+    if (ideaErr) {
+      return NextResponse.json({ error: ideaErr.message }, { status: 500 });
+    }
+    if (!idea) {
+      return NextResponse.json({ error: "date idea not found" }, { status: 404 });
+    }
+    if (idea.status !== "pending" && idea.status !== "completed") {
+      return NextResponse.json(
+        { error: "date idea is not in an attachable state" },
+        { status: 409 },
+      );
+    }
+    validatedDateIdeaId = idea.id as string;
+  }
+
   const photoId = crypto.randomUUID();
   const day = memoDay();
-  const fullPath = `${day}/${photoId}.webp`;
-  const thumbPath = `${day}/${photoId}_thumb.webp`;
+  // Date-bound photos go under a `dates/` prefix so the archive directory
+  // tree is self-explanatory in the Storage browser. Daily photos keep
+  // the per-memo-day layout.
+  const dir = validatedDateIdeaId ? `dates/${validatedDateIdeaId}` : day;
+  const fullPath = `${dir}/${photoId}.webp`;
+  const thumbPath = `${dir}/${photoId}_thumb.webp`;
 
   const fullBuffer = await file.arrayBuffer();
   const thumbBuffer = await thumb.arrayBuffer();
@@ -65,6 +97,12 @@ export async function POST(req: Request) {
   };
   if (typeof caption === "string" && caption.length > 0 && caption.length <= 500) {
     insertPayload.caption = caption;
+  }
+  if (validatedDateIdeaId) {
+    insertPayload.date_idea_id = validatedDateIdeaId;
+    // The reveal trigger detects date_idea_id and stamps reveal_at = now()
+    // when omitted; setting it here too is belt-and-braces.
+    insertPayload.reveal_at = new Date().toISOString();
   }
 
   const { data, error: e3 } = await supabase

@@ -371,7 +371,10 @@ export default function CanvasClient() {
   // ---- Derived data ----
 
   const pinnedPhotos = useMemo(
-    () => photos.filter((p) => !isLocked(p) && p.pinned_at !== null),
+    () =>
+      photos.filter(
+        (p) => p.date_idea_id === null && !isLocked(p) && p.pinned_at !== null,
+      ),
     // revealTick re-runs the filter at the moment a photo unlocks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [photos, revealTick],
@@ -851,8 +854,12 @@ export default function CanvasClient() {
     const now = new Date();
     // Window: reveal_at ≤ now < next local midnight after reveal_at.
     // After midnight, today's batch falls out and the locked-countdown
-    // view takes over for tomorrow's batch.
-    return photos.filter((p) => revealWindowOpen(p, now));
+    // view takes over for tomorrow's batch. Date-bound photos
+    // (date_idea_id set) live under the date entry in archive only —
+    // never in the daily reveal sheet.
+    return photos.filter(
+      (p) => p.date_idea_id === null && revealWindowOpen(p, now),
+    );
     // revealTick: same reason as pinnedPhotos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, revealTick]);

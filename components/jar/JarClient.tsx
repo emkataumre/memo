@@ -14,13 +14,51 @@ const EMPTY_STATE: JarState = {
   byAuthor: { emo: 0, magi: 0 },
 };
 
+const CACHE_KEY = "memo:jar_state";
+
+function readCachedState(): JarState {
+  if (typeof window === "undefined") return EMPTY_STATE;
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (!raw) return EMPTY_STATE;
+    const parsed = JSON.parse(raw) as Partial<JarState>;
+    if (
+      typeof parsed.count === "number" &&
+      parsed.byAuthor &&
+      typeof parsed.byAuthor.emo === "number" &&
+      typeof parsed.byAuthor.magi === "number"
+    ) {
+      return parsed as JarState;
+    }
+  } catch {
+    /* corrupt cache — ignore */
+  }
+  return EMPTY_STATE;
+}
+
+function writeCachedState(state: JarState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
 export default function JarClient() {
   const router = useRouter();
   const self = useSelf();
-  const [state, setState] = useState<JarState>(EMPTY_STATE);
+  // Lazy initial state: hydrate from localStorage so the jar draws with
+  // the right fill on first paint, before /api/jar responds.
+  const [state, setState] = useState<JarState>(readCachedState);
   const [composing, setComposing] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+
+  // Prefetch the canvas bundle so "canvas" navigation is also instant.
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
 
   const fetchState = useCallback(async () => {
     try {
@@ -28,6 +66,7 @@ export default function JarClient() {
       if (!res.ok) return;
       const data = (await res.json()) as JarState;
       setState(data);
+      writeCachedState(data);
     } catch {
       /* keep last state on transient errors */
     }

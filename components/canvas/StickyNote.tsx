@@ -266,13 +266,17 @@ function StickyNote({
   const restText =
     firstBreak === -1 ? "" : note.body.slice(firstBreak + 1).trim();
 
+  // Tier-1 drops the variant-specific paint (grain gradient, tape's
+  // paper backing) — those are decorative and disproportionately
+  // expensive when many cards are on-screen at once.
   const bgClass =
-    variant === "grain" || variant === "tape"
-      ? "" // background painted inline below
-      : COLOR_BG[note.color];
+    isSimplified || (variant !== "grain" && variant !== "tape")
+      ? COLOR_BG[note.color]
+      : "";
 
-  const inlineBg =
-    variant === "grain"
+  const inlineBg = isSimplified
+    ? undefined
+    : variant === "grain"
       ? {
           backgroundImage:
             "radial-gradient(circle, rgba(24,22,21,0.09) 1px, transparent 1.4px)",

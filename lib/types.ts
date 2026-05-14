@@ -1,5 +1,11 @@
 export type Author = "emo" | "magi";
 export type NoteColor = "lemon" | "pink" | "sky" | "mint";
+export type NoteVariant =
+  | "classic"
+  | "strip"
+  | "grain"
+  | "tape"
+  | "quote";
 
 export interface Note {
   id: string;
@@ -9,6 +15,13 @@ export interface Note {
   x: number;
   y: number;
   rotation: number;
+  // Optional explicit size in canvas-space pixels. Null = client default
+  // (currently 208 × 128). See StickyNote + migration 0004.
+  width: number | null;
+  height: number | null;
+  // Visual treatment chosen at creation. Null = legacy row → render
+  // as classic.
+  variant: NoteVariant | null;
   created_at: string;
   updated_at: string;
 }

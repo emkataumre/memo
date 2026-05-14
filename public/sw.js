@@ -4,7 +4,7 @@
  * The activate handler deletes any cache whose name doesn't match.
  */
 
-const CACHE_VERSION = "memo-v2";
+const CACHE_VERSION = "memo-v3";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
@@ -26,13 +26,16 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(SHELL_CACHE);
       // Each URL added individually so one failure doesn't abort the
-      // install (some routes 401 without a cookie — still valid as a
-      // shell response).
+      // install. Skip anything that redirected — caching + serving a
+      // redirected response from SW throws "Response has redirections".
       await Promise.all(
         SHELL_URLS.map(async (url) => {
           try {
-            const res = await fetch(url, { credentials: "same-origin" });
-            if (res.ok || res.type === "opaqueredirect") {
+            const res = await fetch(url, {
+              credentials: "same-origin",
+              redirect: "follow",
+            });
+            if (res.ok && !res.redirected) {
               await cache.put(url, res.clone());
             }
           } catch {
@@ -119,12 +122,20 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// A redirected response cannot be stored in SW caches per spec — the
+// browser refuses to serve it back via fetchEvent.respondWith and throws
+// "Response served by service worker has redirections". Always gate
+// cache.put on this.
+function isCacheable(res) {
+  return res.ok && !res.redirected;
+}
+
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const res = await fetch(request);
-  if (res.ok) cache.put(request, res.clone());
+  if (isCacheable(res)) cache.put(request, res.clone());
   return res;
 }
 
@@ -133,7 +144,7 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request);
   const networkPromise = fetch(request)
     .then((res) => {
-      if (res.ok) cache.put(request, res.clone());
+      if (isCacheable(res)) cache.put(request, res.clone());
       return res;
     })
     .catch(() => cached);
@@ -144,7 +155,7 @@ async function networkFirstRsc(request) {
   const cache = await caches.open(RSC_CACHE);
   try {
     const res = await fetch(request);
-    if (res.ok) cache.put(request, res.clone());
+    if (isCacheable(res)) cache.put(request, res.clone());
     return res;
   } catch {
     const cached = await cache.match(request);
@@ -161,7 +172,7 @@ async function networkFirstRsc(request) {
 async function networkFirstShell(request) {
   try {
     const res = await fetch(request);
-    if (res.ok) {
+    if (isCacheable(res)) {
       const cache = await caches.open(SHELL_CACHE);
       cache.put(request, res.clone());
     }

@@ -74,7 +74,7 @@ export default function PassphrasePage() {
             knock knock.
           </h1>
           <p className="text-xs text-ink-soft mb-5">
-            this place is just for us.
+            датата на първата ни среща
           </p>
 
           {/* Display */}

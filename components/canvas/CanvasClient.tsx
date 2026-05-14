@@ -1,19 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { usePanZoom, zoomAtPoint } from "@/lib/canvas/usePanZoom";
 import { lodFromZoom } from "@/lib/canvas/lod";
 import { SpatialIndex } from "@/lib/canvas/spatial-index";
 import { memoDay, isCurrentMemoDay } from "@/lib/memo-day";
 import {
   cacheLoadNotes,
-  cachePutNotes,
-  cacheReplaceNotes,
+  cacheUpsertNote,
   cacheLoadPhotos,
-  cacheReplacePhotos,
+  cacheUpsertPhoto,
   cacheLoadSongs,
-  cacheReplaceSongs,
+  cacheUpsertSong,
+  cacheDelete,
+  cacheReplaceAll,
 } from "@/lib/cache/indexeddb";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
+import { subscribeCanvas } from "@/lib/supabase/realtime";
+import { isLocked } from "@/lib/photos/derive";
+import { signCache } from "@/lib/photos/sign-cache";
 import { useSelf } from "@/lib/self/useSelf";
 import { useCapture } from "@/lib/camera/useCapture";
 import SelfPicker from "@/components/SelfPicker";
@@ -42,9 +48,12 @@ import type {
 } from "@/lib/types";
 
 const COLORS: NoteColor[] = ["lemon", "pink", "sky", "mint"];
-const POLL_ACTIVE_MS = 3000;
-const POLL_IDLE_MS = 15000;
-const IDLE_THRESHOLD_MS = 60000;
+// Safety tick — covers cases where setTimeout was throttled (background
+// tab, OS suspension) so the UI still flips locked → revealed within a
+// minute even if the scheduled timer missed.
+const REVEAL_SAFETY_TICK_MS = 60_000;
+// Max single setTimeout we trust; longer waits get re-scheduled.
+const REVEAL_TIMER_CAP_MS = 12 * 60 * 60 * 1000;
 
 function randomColor(): NoteColor {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -52,6 +61,37 @@ function randomColor(): NoteColor {
 
 function randomRotation(): number {
   return (Math.random() - 0.5) * 10;
+}
+
+// Snapshot/live-event reconciler. `stamps` tracks the most recent live
+// event for each id, so a snapshot that pre-dates a live update doesn't
+// clobber the newer state.
+function mergeRows<T extends { id: string }>(
+  table: string,
+  prev: T[],
+  snapshot: T[],
+  snapshotTs: number,
+  stamps: Map<string, number>,
+): T[] {
+  const prevById = new Map(prev.map((r) => [r.id, r]));
+  const snapIds = new Set(snapshot.map((r) => r.id));
+  const out: T[] = [];
+  for (const row of snapshot) {
+    const localTs = stamps.get(`${table}:${row.id}`) ?? 0;
+    if (prevById.has(row.id) && localTs >= snapshotTs) {
+      out.push(prevById.get(row.id)!);
+    } else {
+      out.push(row);
+    }
+  }
+  for (const row of prev) {
+    if (snapIds.has(row.id)) continue;
+    const localTs = stamps.get(`${table}:${row.id}`) ?? 0;
+    // Row not in snapshot. Keep only if a live event after the snapshot
+    // re-inserted it; otherwise treat snapshot as authoritative deletion.
+    if (localTs >= snapshotTs) out.push(row);
+  }
+  return out;
 }
 
 export default function CanvasClient() {
@@ -98,19 +138,172 @@ export default function CanvasClient() {
     return () => ro.disconnect();
   }, []);
 
-  // Cold load + polling for both notes and photos
-  const pollRef = useRef<(() => Promise<void>) | null>(null);
-  const lastActivityRef = useRef<number>(0);
+  // Live state mirrored to refs so the snapshot reconciler can read
+  // current values without waiting for a render cycle.
+  const notesRef = useRef<Note[]>([]);
+  const photosRef = useRef<Photo[]>([]);
+  const songsRef = useRef<Song[]>([]);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
+
+  // Per-row timestamps of the most recent live event. Used by the
+  // snapshot merger to detect updates that arrived after the snapshot
+  // was serialized server-side.
+  const lastEventTsRef = useRef<Map<string, number>>(new Map());
+
+  // Bumped when a reveal boundary passes so the locked → revealed
+  // derivations recompute even though no DB row changed.
+  const [revealTick, setRevealTick] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    lastActivityRef.current = Date.now();
+    let unsubscribe: (() => void) | null = null;
 
-    function markActive() {
-      lastActivityRef.current = Date.now();
+    function applyNoteEvent(
+      payload: RealtimePostgresChangesPayload<Note>,
+    ): void {
+      const ts = Date.now();
+      if (payload.eventType === "DELETE") {
+        const id = (payload.old as Partial<Note>).id;
+        if (!id) return;
+        lastEventTsRef.current.set(`notes:${id}`, ts);
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        void cacheDelete("notes", id);
+        return;
+      }
+      const row = payload.new as Note;
+      lastEventTsRef.current.set(`notes:${row.id}`, ts);
+      setNotes((prev) => {
+        const idx = prev.findIndex((n) => n.id === row.id);
+        if (idx >= 0) {
+          const copy = prev.slice();
+          copy[idx] = row;
+          return copy;
+        }
+        return [...prev, row];
+      });
+      void cacheUpsertNote(row);
     }
 
-    async function bootstrap() {
+    function applyPhotoEvent(
+      payload: RealtimePostgresChangesPayload<Photo>,
+    ): void {
+      const ts = Date.now();
+      if (payload.eventType === "DELETE") {
+        const id = (payload.old as Partial<Photo>).id;
+        if (!id) return;
+        lastEventTsRef.current.set(`photos:${id}`, ts);
+        signCache.evict(id);
+        setPhotos((prev) => prev.filter((p) => p.id !== id));
+        void cacheDelete("photos", id);
+        return;
+      }
+      const row = payload.new as Photo;
+      lastEventTsRef.current.set(`photos:${row.id}`, ts);
+      // INSERT: row is locked at upload time; sign-cache will resolve
+      //   once it crosses reveal_at.
+      // UPDATE: pin/move/caption updates don't change storage_path,
+      //   so cached URLs (if any) stay valid.
+      if (!isLocked(row)) signCache.ensureMany([row.id]);
+      setPhotos((prev) => {
+        const idx = prev.findIndex((p) => p.id === row.id);
+        if (idx >= 0) {
+          const copy = prev.slice();
+          copy[idx] = row;
+          return copy;
+        }
+        return [...prev, row];
+      });
+      void cacheUpsertPhoto(row);
+    }
+
+    function applySongEvent(
+      payload: RealtimePostgresChangesPayload<Song>,
+    ): void {
+      const ts = Date.now();
+      if (payload.eventType === "DELETE") {
+        const id = (payload.old as Partial<Song>).id;
+        if (!id) return;
+        lastEventTsRef.current.set(`songs:${id}`, ts);
+        setSongs((prev) => prev.filter((s) => s.id !== id));
+        void cacheDelete("songs", id);
+        return;
+      }
+      const row = payload.new as Song;
+      lastEventTsRef.current.set(`songs:${row.id}`, ts);
+      setSongs((prev) => {
+        const idx = prev.findIndex((s) => s.id === row.id);
+        if (idx >= 0) {
+          const copy = prev.slice();
+          copy[idx] = row;
+          return copy;
+        }
+        return [...prev, row];
+      });
+      void cacheUpsertSong(row);
+    }
+
+    async function resync(): Promise<void> {
+      if (cancelled) return;
+      const snapshotTs = Date.now();
+      const sb = await getSupabaseBrowser();
+      const [
+        { data: nRows, error: nErr },
+        { data: pRows, error: pErr },
+        { data: sRows, error: sErr },
+      ] = await Promise.all([
+        sb.from("notes").select("*").order("updated_at", { ascending: true }),
+        sb.from("photos").select("*").order("taken_at", { ascending: true }),
+        sb.from("songs").select("*").order("memo_day", { ascending: true }),
+      ]);
+      if (cancelled) return;
+      if (nErr || pErr || sErr) {
+        // RLS misconfig or auth blip — let the next resync retry.
+        return;
+      }
+
+      const mergedNotes = mergeRows(
+        "notes",
+        notesRef.current,
+        (nRows ?? []) as Note[],
+        snapshotTs,
+        lastEventTsRef.current,
+      );
+      const mergedPhotos = mergeRows(
+        "photos",
+        photosRef.current,
+        (pRows ?? []) as Photo[],
+        snapshotTs,
+        lastEventTsRef.current,
+      );
+      const mergedSongs = mergeRows(
+        "songs",
+        songsRef.current,
+        (sRows ?? []) as Song[],
+        snapshotTs,
+        lastEventTsRef.current,
+      );
+
+      setNotes(mergedNotes);
+      setPhotos(mergedPhotos);
+      setSongs(mergedSongs);
+
+      const revealedIds = mergedPhotos
+        .filter((p) => !isLocked(p))
+        .map((p) => p.id);
+      if (revealedIds.length > 0) signCache.ensureMany(revealedIds);
+
+      void cacheReplaceAll(mergedNotes, mergedPhotos, mergedSongs);
+    }
+
+    async function bootstrap(): Promise<void> {
       const [cachedNotes, cachedPhotos, cachedSongs] = await Promise.all([
         cacheLoadNotes(),
         cacheLoadPhotos(),
@@ -120,86 +313,84 @@ export default function CanvasClient() {
       if (cachedNotes.length) setNotes(cachedNotes);
       if (cachedPhotos.length) setPhotos(cachedPhotos);
       if (cachedSongs.length) setSongs(cachedSongs);
-      await poll();
-    }
 
-    async function poll() {
-      if (cancelled) return;
       try {
-        const res = await fetch("/api/state");
-        if (res.ok) {
-          const data = (await res.json()) as {
-            notes?: Note[];
-            photos?: Photo[];
-            songs?: Song[];
-          };
-          if (data.notes) {
-            setNotes(data.notes);
-            await cacheReplaceNotes(data.notes);
-          }
-          if (data.photos) {
-            setPhotos(data.photos);
-            await cacheReplacePhotos(data.photos);
-          }
-          if (data.songs) {
-            setSongs(data.songs);
-            await cacheReplaceSongs(data.songs);
-          }
-        }
-      } catch {
-        /* network blip — retry next tick */
-      }
-      if (!cancelled && !document.hidden) {
-        const idleFor = Date.now() - lastActivityRef.current;
-        const next = idleFor > IDLE_THRESHOLD_MS ? POLL_IDLE_MS : POLL_ACTIVE_MS;
-        timer = setTimeout(poll, next);
+        unsubscribe = await subscribeCanvas({
+          onNote: applyNoteEvent,
+          onPhoto: applyPhotoEvent,
+          onSong: applySongEvent,
+          onResync: resync,
+        });
+      } catch (err) {
+        // getSupabaseBrowser redirects to /passphrase on 401; other
+        // errors leave the user with cached state until they refresh.
+        console.error("realtime subscribe failed", err);
       }
     }
 
-    pollRef.current = poll;
-    bootstrap();
-
-    function onVisibility() {
-      if (!document.hidden && !timer && !cancelled) {
-        markActive();
-        poll();
-      }
-    }
-    function onActivity() {
-      const wasIdle = Date.now() - lastActivityRef.current > IDLE_THRESHOLD_MS;
-      markActive();
-      // Coming out of idle: poll now instead of waiting up to 15 s.
-      if (wasIdle && !timer && !cancelled && !document.hidden) poll();
-    }
-    document.addEventListener("visibilitychange", onVisibility);
-    document.addEventListener("pointerdown", onActivity, { passive: true });
-    document.addEventListener("wheel", onActivity, { passive: true });
-    document.addEventListener("keydown", onActivity);
+    void bootstrap();
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
-      document.removeEventListener("pointerdown", onActivity);
-      document.removeEventListener("wheel", onActivity);
-      document.removeEventListener("keydown", onActivity);
-      pollRef.current = null;
+      unsubscribe?.();
     };
   }, []);
 
-  // Capture (camera) hook — kicks off a poll on success so the locked
-  // photo appears in the PendingPill count immediately.
+  // Reveal-boundary timer: flip `isLocked` derivations the moment a
+  // photo's reveal_at passes. The 60s safety tick covers throttled
+  // timers (background tab, OS suspension).
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function schedule(): void {
+      if (timer) clearTimeout(timer);
+      const now = Date.now();
+      let nextAt = Infinity;
+      for (const p of photos) {
+        const t = Date.parse(p.reveal_at);
+        if (t > now && t < nextAt) nextAt = t;
+      }
+      if (nextAt === Infinity) return;
+      const delay = Math.min(nextAt - now, REVEAL_TIMER_CAP_MS);
+      timer = setTimeout(() => {
+        setRevealTick((t) => t + 1);
+        // Photos that just unlocked need signed URLs.
+        const justRevealedIds = photosRef.current
+          .filter((p) => !isLocked(p))
+          .map((p) => p.id);
+        if (justRevealedIds.length > 0) {
+          signCache.ensureMany(justRevealedIds);
+        }
+        schedule();
+      }, Math.max(0, delay));
+    }
+
+    schedule();
+    const safetyInterval = setInterval(
+      () => setRevealTick((t) => t + 1),
+      REVEAL_SAFETY_TICK_MS,
+    );
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      clearInterval(safetyInterval);
+    };
+  }, [photos]);
+
+  // Capture (camera) hook. Realtime INSERT will surface the locked photo
+  // in the PendingPill count automatically once it lands in the DB.
   const capture = useCapture(() => {
     setUploadFlash("locked in.");
     setTimeout(() => setUploadFlash(null), 2500);
-    pollRef.current?.();
   });
 
   // ---- Derived data ----
 
   const pinnedPhotos = useMemo(
-    () => photos.filter((p) => !p.locked && p.pinned_at !== null),
-    [photos],
+    () => photos.filter((p) => !isLocked(p) && p.pinned_at !== null),
+    // revealTick re-runs the filter at the moment a photo unlocks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [photos, revealTick],
   );
 
   const pinnedSongs = useMemo(
@@ -305,7 +496,7 @@ export default function CanvasClient() {
         setNotes((prev) =>
           prev.map((n) => (n.id === tempId ? data.note : n)),
         );
-        await cachePutNotes([data.note]);
+        await cacheUpsertNote(data.note);
       } catch {
         setNotes((prev) => prev.filter((n) => n.id !== tempId));
       }
@@ -328,10 +519,10 @@ export default function CanvasClient() {
       });
       if (res.ok) {
         const data = (await res.json()) as { note: Note };
-        await cachePutNotes([data.note]);
+        await cacheUpsertNote(data.note);
       }
     } catch {
-      /* reconcile on next poll */
+      /* realtime UPDATE will reconcile */
     }
   }, []);
 
@@ -554,9 +745,11 @@ export default function CanvasClient() {
     // eslint-disable-next-line react-hooks/purity
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return photos.filter(
-      (p) => !p.locked && Date.parse(p.reveal_at) > cutoff,
+      (p) => !isLocked(p) && Date.parse(p.reveal_at) > cutoff,
     );
-  }, [photos]);
+    // revealTick: same reason as pinnedPhotos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos, revealTick]);
 
   const jumpToToday = useCallback(() => {
     if (!vpSize) return;

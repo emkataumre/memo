@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { Photo } from "@/lib/types";
+import { isLocked } from "@/lib/photos/derive";
 
 interface Props {
   photos: Photo[];
@@ -19,7 +20,7 @@ export default function PendingPill({ photos, onOpenReveal }: Props) {
     // eslint-disable-next-line react-hooks/purity
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return photos.filter(
-      (p) => !p.locked && Date.parse(p.reveal_at) > cutoff,
+      (p) => !isLocked(p) && Date.parse(p.reveal_at) > cutoff,
     );
   }, [photos]);
 

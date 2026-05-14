@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { Author, Note, Photo, Song } from "@/lib/types";
 import { memoDay } from "@/lib/memo-day";
+import { isLocked } from "@/lib/photos/derive";
+import { usePhotoUrl, usePhotoUrlPrefetch } from "@/lib/photos/usePhotoUrls";
 
 interface Props {
   notes: Note[];
@@ -52,9 +54,10 @@ export default function ArchiveSheet({
   const [filter, setFilter] = useState<Filter>("all");
 
   const revealedPhotos = useMemo(
-    () => photos.filter((p) => !p.locked),
+    () => photos.filter((p) => !isLocked(p)),
     [photos],
   );
+  usePhotoUrlPrefetch(revealedPhotos.map((p) => p.id));
 
   // Group photos by memo-day (derived from taken_at)
   const photoGroups = useMemo(() => {
@@ -303,6 +306,7 @@ function PhotoTile({
   photo: Photo;
   onView: (p: Photo) => void;
 }) {
+  const urls = usePhotoUrl(photo.id);
   return (
     <button
       onClick={() => onView(photo)}
@@ -311,8 +315,8 @@ function PhotoTile({
       <div
         className="w-full aspect-square bg-ink/10"
         style={{
-          backgroundImage: photo.thumb_url
-            ? `url(${photo.thumb_url})`
+          backgroundImage: urls?.thumb_url
+            ? `url(${urls.thumb_url})`
             : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",

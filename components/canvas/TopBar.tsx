@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Photo } from "@/lib/types";
 import { minutesUntilNextReveal } from "@/lib/memo-day";
+import { isLocked } from "@/lib/photos/derive";
 
 interface Props {
   onEnterZen: () => void;
@@ -19,12 +20,12 @@ export default function TopBar({
   onOpenArchive,
   photos,
 }: Props) {
-  const lockedCount = photos.filter((p) => p.locked).length;
+  const lockedCount = photos.filter((p) => isLocked(p)).length;
   const tonightsCount = useMemo(() => {
     // eslint-disable-next-line react-hooks/purity
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return photos.filter(
-      (p) => !p.locked && Date.parse(p.reveal_at) > cutoff,
+      (p) => !isLocked(p) && Date.parse(p.reveal_at) > cutoff,
     ).length;
   }, [photos]);
   const tonightsUnpinned = useMemo(() => {
@@ -32,7 +33,7 @@ export default function TopBar({
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return photos.filter(
       (p) =>
-        !p.locked &&
+        !isLocked(p) &&
         p.pinned_at === null &&
         Date.parse(p.reveal_at) > cutoff,
     ).length;

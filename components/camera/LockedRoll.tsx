@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Photo } from "@/lib/types";
 import { minutesUntilNextReveal } from "@/lib/memo-day";
+import { isLocked } from "@/lib/photos/derive";
 
 interface Props {
   photos: Photo[];
@@ -18,7 +19,7 @@ export default function LockedRoll({ photos, onClose }: Props) {
     return () => clearInterval(id);
   }, []);
 
-  const locked = photos.filter((p) => p.locked);
+  const locked = photos.filter((p) => isLocked(p));
   const lockedEmo = locked.filter((p) => p.author === "emo").length;
   const lockedMagi = locked.filter((p) => p.author === "magi").length;
 
